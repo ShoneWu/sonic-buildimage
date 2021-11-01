@@ -2,6 +2,7 @@
 # class sonic_yang. A separate file is used to avoid a single large file.
 
 from __future__ import print_function
+import copy
 import yang as ly
 import syslog
 from json import dump, dumps, loads
@@ -1038,16 +1039,21 @@ class SonicYangExtMixin:
     load_data: load Config DB, crop, xlate and create data tree from it. (Public)
     input:    data
               debug Flag
+              remove_non_yang_in_place Flag that indicates whether to remove tables without YANG
+                                       from configdbJson directly or create a copy and modify it
     returns:  True - success   False - failed
     """
-    def loadData(self, configdbJson, debug=False):
+    def loadData(self, configdbJson, debug=False, remove_non_yang_in_place=True):
 
        try:
           # write Translated config in file if debug enabled
           xlateFile = None
           if debug:
               xlateFile = "xlateConfig.json"
-          self.jIn = configdbJson
+          if remove_non_yang_in_place:
+              self.jIn = configdbJson
+          else:
+              self.jIn = copy.deepcopy(configdbJson)
           # reset xlate and tablesWithOutYang
           self.xlateJson = dict()
           self.tablesWithOutYang = dict()

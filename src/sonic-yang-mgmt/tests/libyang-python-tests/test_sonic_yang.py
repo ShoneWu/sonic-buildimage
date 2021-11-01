@@ -364,5 +364,17 @@ class Test_SonicYang(object):
 
         return
 
+    def test_remove_non_yang_in_place(self, sonic_yang_data):
+        # Check remove_non_yang_in_place=False
+        configDbJson = { "TABLE_WITHOUT_YANG": {}}
+        syc = sonic_yang_data['syc']
+        syc.loadData(configDbJson, remove_non_yang_in_place=False)
+        assert {"TABLE_WITHOUT_YANG": {}} == configDbJson
+
+        # Check remove_non_yang_in_place=True
+        configDbJson = { "TABLE_WITHOUT_YANG": {}}
+        syc.loadData(configDbJson, remove_non_yang_in_place=True)
+        assert {} == configDbJson
+
     def teardown_class(self):
         pass
