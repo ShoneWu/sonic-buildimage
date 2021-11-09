@@ -1,0 +1,135 @@
+diff -Naur igb-5.4.6/src/e1000_api.c igb-5.4.6_new/src/e1000_api.c
+--- igb-5.4.6/src/e1000_api.c	2020-09-04 19:28:00.368450643 +0800
++++ igb-5.4.6_new/src/e1000_api.c	2021-05-12 14:04:36.181515300 +0800
+@@ -67,7 +67,7 @@
+ 	s32 ret_val = E1000_SUCCESS;
+ 
+ 	if (hw->phy.ops.init_params) {
+-		ret_val = hw->phy.ops.init_params(hw);
++		//ret_val = hw->phy.ops.init_params(hw);
+ 		if (ret_val) {
+ 			DEBUGOUT("PHY Initialization Error\n");
+ 			goto out;
+@@ -202,6 +202,8 @@
+ {
+ 	s32 ret_val;
+ 
++	DEBUGOUT1("igb:hw->mac.type = %d\n", hw->mac.type);
++
+ 	/* Can't do much good without knowing the MAC type. */
+ 	ret_val = e1000_set_mac_type(hw);
+ 	if (ret_val) {
+diff -Naur igb-5.4.6/src/e1000_i210.c igb-5.4.6_new/src/e1000_i210.c
+--- igb-5.4.6/src/e1000_i210.c	2020-09-04 19:28:00.064450654 +0800
++++ igb-5.4.6_new/src/e1000_i210.c	2021-05-12 14:06:58.325282100 +0800
+@@ -3,6 +3,9 @@
+ 
+ #include "e1000_api.h"
+ 
++#ifndef DEBUG_FUNC
++#define DEBUG_FUNC
++#endif
+ 
+ static s32 e1000_acquire_nvm_i210(struct e1000_hw *hw);
+ static void e1000_release_nvm_i210(struct e1000_hw *hw);
+diff -Naur igb-5.4.6/src/e1000_osdep.h igb-5.4.6_new/src/e1000_osdep.h
+--- igb-5.4.6/src/e1000_osdep.h	2020-09-04 19:27:59.084450688 +0800
++++ igb-5.4.6_new/src/e1000_osdep.h	2021-05-12 14:07:44.491391600 +0800
+@@ -45,6 +45,14 @@
+ #define E1000_BIG_ENDIAN __BIG_ENDIAN
+ #endif
+ 
++#ifndef DEBUG
++#define DEBUG
++#endif
++
++#ifndef DEBUG_FUNC
++#define DEBUG_FUNC
++#endif
++
+ #ifdef DEBUG
+ #define DEBUGOUT(S) pr_debug(S)
+ #define DEBUGOUT1(S, A...) pr_debug(S, ## A)
+diff -Naur igb-5.4.6/src/igb_main.c igb-5.4.6_new/src/igb_main.c
+--- igb-5.4.6/src/igb_main.c	2020-09-04 19:27:58.712450701 +0800
++++ igb-5.4.6_new/src/igb_main.c	2021-05-12 14:08:15.961922100 +0800
+@@ -1929,6 +1929,7 @@
+ 	struct e1000_mac_info *mac = &hw->mac;
+ 	struct e1000_fc_info *fc = &hw->fc;
+ 	u32 pba = 0, tx_space, min_tx_space, min_rx_space, hwm;
++	u32 ret_val = 0;
+ 
+ 	/* Repartition Pba for greater than 9k mtu
+ 	 * To take effect CTRL.RST is required.
+@@ -2047,8 +2048,10 @@
+ 			(adapter->flags & IGB_FLAG_MAS_ENABLE)) {
+ 		igb_enable_mas(adapter);
+ 	}
+-	if (e1000_init_hw(hw))
+-		dev_err(pci_dev_to_dev(pdev), "Hardware Error\n");
++	
++	ret_val = e1000_init_hw(hw);
++	if (ret_val)
++		dev_err(pci_dev_to_dev(pdev), "Hardware Error.igb_reset ret_val = %d\n",ret_val);
+ 
+ 	/*
+ 	 * Flow control settings reset on hardware reset, so guarantee flow
+@@ -3456,6 +3459,7 @@
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct pci_dev *pdev = adapter->pdev;
++	u32 ret_val = 0;
+ 
+ 	/* PCI config space info */
+ 
+@@ -3479,8 +3483,9 @@
+ 					      VLAN_HLEN;
+ 
+ 	/* Initialize the hardware-specific values */
+-	if (e1000_setup_init_funcs(hw, TRUE)) {
+-		dev_err(pci_dev_to_dev(pdev), "Hardware Initialization Failure\n");
++	ret_val = e1000_setup_init_funcs(hw, TRUE);
++	if (ret_val) {
++		dev_err(pci_dev_to_dev(pdev), "Hardware Initialization Failure.e1000_setup_init_funcs ret_val = %d\n",ret_val);
+ 		return -EIO;
+ 	}
+ 
+diff -Naur igb-5.4.6/src/igb_ptp.c igb-5.4.6_new/src/igb_ptp.c
+--- igb-5.4.6/src/igb_ptp.c	2020-09-04 19:27:58.476450709 +0800
++++ igb-5.4.6_new/src/igb_ptp.c	2021-05-12 18:03:35.338779000 +0800
+@@ -826,6 +826,8 @@
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+ 
++	dev_err(&adapter->pdev->dev, "igb:igb_ptp_init mac.type = %d \n", hw->mac.type);
++
+ 	switch (hw->mac.type) {
+ 	case e1000_82576:
+ 		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
+@@ -878,7 +880,7 @@
+ 		break;
+ 	case e1000_i210:
+ 	case e1000_i211:
+-		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
++		snprintf(adapter->ptp_caps.name, 16, "igb:%pm", netdev->dev_addr);
+ 		adapter->ptp_caps.owner = THIS_MODULE;
+ 		adapter->ptp_caps.max_adj = 62499999;
+ 		adapter->ptp_caps.n_ext_ts = 0;
+diff -Naur igb-5.4.6/src/kcompat.h igb-5.4.6_new/src/kcompat.h
+--- igb-5.4.6/src/kcompat.h	2020-09-04 19:28:00.608450635 +0800
++++ igb-5.4.6_new/src/kcompat.h	2021-05-12 14:08:59.763893800 +0800
+@@ -4,6 +4,14 @@
+ #ifndef _KCOMPAT_H_
+ #define _KCOMPAT_H_
+ 
++#ifndef DEBUG
++#define DEBUG
++#endif
++
++#ifndef DEBUG_FUNC
++#define DEBUG_FUNC
++#endif
++
+ #ifndef LINUX_VERSION_CODE
+ #include <linux/version.h>
+ #else

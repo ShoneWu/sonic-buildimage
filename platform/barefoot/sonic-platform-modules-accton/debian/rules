@@ -1,0 +1,142 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+include /usr/share/dpkg/pkg-info.mk
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export INSTALL_MOD_DIR:=extra
+
+PYTHON         ?= python2
+PYTHON3        ?= python3
+
+PACKAGE_PRE_NAME := sonic-platform-modules-accton
+KVERSION   ?= $(shell uname -r)
+KERNEL_SRC :=  /lib/modules/$(KVERSION)
+MOD_SRC_DIR:= $(shell pwd)
+MODULE_DIRS:= csp7551
+MODULE_DIR := modules
+UTILS_DIR := utils
+SERVICE_DIR := service
+CONF_DIR := conf
+IGB_SRC := igb-5.4.6
+IGB_SRC_DIR := $(IGB_SRC)/src
+IGB_INSTALL_DIR := updates/drivers/net/ethernet/intel/igb
+ICE_SRC := ice-1.5.8
+ICE_SRC_DIR := $(ICE_SRC)/src
+ICE_INSTALL_DIR := updates/drivers/net/ethernet/intel/ice
+ICE_FIRMWARE_INSTALL_DIR := /usr/lib/firmware/updates/intel/ice/ddp
+COMPONENTS_FW_SRC_DIR := components_fw
+COMPONENTS_FW_INSTALL_DIR := /etc/accton/fw
+
+
+%:
+	dh $@ --with systemd,python2,python3 --buildsystem=pybuild
+
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean
+
+build:
+	#make modules -C $(KERNEL_SRC)/build M=$(MODULE_SRC)
+	(for mod in $(MODULE_DIRS); do \
+		make modules -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/modules; \
+		$(PYTHON) $${mod}/setup.py build; \
+		cd $(MOD_SRC_DIR)/$${mod}; \
+		if [ -f sonic_platform_setup.py ]; then \
+			$(PYTHON3) sonic_platform_setup.py bdist_wheel -d $(MOD_SRC_DIR)/$${mod}; \
+			echo "Finished makig whl package for $$mod"; \
+		fi; \
+		if [ $$mod = "csp7551" ]; then \
+			rm -rf $(IGB_SRC); \
+			tar -xzvf $(IGB_SRC).tar.gz -C $(MOD_SRC_DIR)/$${mod}; \
+			patch -N -s -p1 -d $(IGB_SRC) -i $(MOD_SRC_DIR)/$${mod}/$(IGB_SRC).patch; \
+			make modules -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/$(IGB_SRC_DIR); \
+			rm -rf $(ICE_SRC); \
+			tar -xzvf $(ICE_SRC).tar.gz -C $(MOD_SRC_DIR)/$${mod}; \
+			make -C $(ICE_SRC_DIR) KSRC=$(KERNEL_SRC)/build; \
+		fi; \
+		cd $(MOD_SRC_DIR); \
+	done)
+
+binary: binary-arch binary-indep
+	# Nothing to do
+
+binary-arch:
+	# Nothing to do
+
+#install: build
+	#dh_testdir
+	#dh_testroot
+	#dh_clean -k
+	#dh_installdirs
+
+binary-indep:
+	dh_testdir
+	dh_installdirs
+
+	# Custom package commands
+	(for mod in $(MODULE_DIRS); do \
+		if [ -d $${mod}/$(MODULE_DIR) ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
+			cp $(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
+		fi; \
+		if [ -d $${mod}/$(UTILS_DIR) ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} /usr/local/bin; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(UTILS_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/usr/local/bin/; \
+		fi; \
+		if [ -d $${mod}/$(SERVICE_DIR) ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} /lib/systemd/system; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(SERVICE_DIR)/*.service debian/$(PACKAGE_PRE_NAME)-$${mod}/lib/systemd/system/; \
+		fi; \
+		if [ -f $${mod}/setup.py ]; then \
+			$(PYTHON) $${mod}/setup.py install --root=$(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod} --install-layout=deb; \
+		fi; \
+		if [ -f $${mod}/sonic_platform_setup.py ]; then \
+			cd $(MOD_SRC_DIR)/$${mod}; \
+			$(PYTHON3) sonic_platform_setup.py install --root=$(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod} --install-layout=deb; \
+			echo "Insalled whl package for $$mod"; \
+			cd $(MOD_SRC_DIR); \
+		fi; \
+		if [ $$mod = "wedge100bf-32qs" ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} etc/network/interfaces.d; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(CONF_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/etc/network/interfaces.d; \
+		fi; \
+	    if [ $$mod = "csp7551" ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(IGB_INSTALL_DIR); \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(ICE_FIRMWARE_INSTALL_DIR); \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(ICE_INSTALL_DIR); \
+			cp $(MOD_SRC_DIR)/$${mod}/$(IGB_SRC_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(IGB_INSTALL_DIR); \
+			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(ICE_INSTALL_DIR); \
+			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/../ddp/ice-1.3.26.0.pkg debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR); \
+			ln -sf debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR)/ice-1.3.26.0.pkg debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR)/ice.pkg; \
+		fi; \
+		if [ -d $${mod}/$(COMPONENTS_FW_SRC_DIR) ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(COMPONENTS_FW_INSTALL_DIR)/$${mod}/chassis; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(COMPONENTS_FW_SRC_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/$(COMPONENTS_FW_INSTALL_DIR)/$${mod}/chassis; \
+		fi; \
+	done)
+	# Resuming debhelper scripts
+	dh_testroot
+	dh_install
+	dh_installchangelogs
+	dh_installdocs
+	dh_systemd_enable
+	dh_installinit
+	dh_systemd_start
+	dh_link
+	dh_fixperms
+	dh_compress
+	dh_strip
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+.PHONY: build binary binary-arch binary-indep clean
