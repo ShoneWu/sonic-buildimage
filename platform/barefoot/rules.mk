@@ -2,6 +2,7 @@ include $(PLATFORM_PATH)/platform-modules-arista.mk
 include $(PLATFORM_PATH)/platform-modules-bfn.mk
 include $(PLATFORM_PATH)/platform-modules-bfn-montara.mk
 include $(PLATFORM_PATH)/platform-modules-bfn-newport.mk
+include $(PLATFORM_PATH)/platform-modules-accton-csp9550.mk
 include $(PLATFORM_PATH)/platform-modules-wnc-osw1800.mk
 include $(PLATFORM_PATH)/platform-modules-ingrasys.mk
 include $(PLATFORM_PATH)/bfn-sai.mk

@@ -226,6 +226,10 @@ else
     echo '[INFO] Skipping Install kubernetes'
 fi
 
+##Cancel Logout
+sudo chmod 777 -R $FILESYSTEM_ROOT/root/
+sudo echo "export TMOUT=0" >> $FILESYSTEM_ROOT/root/.bashrc
+
 ## Add docker config drop-in to specify dockerd command line
 sudo mkdir -p $FILESYSTEM_ROOT/etc/systemd/system/docker.service.d/
 ## Note: $_ means last argument of last command
@@ -238,6 +242,15 @@ sudo sed -i '/After=/s/$/ containerd.service/' $FILESYSTEM_ROOT/lib/systemd/syst
 sudo LANG=C chroot $FILESYSTEM_ROOT useradd -G sudo,docker $USERNAME -c "$DEFAULT_USERINFO" -m -s /bin/bash
 ## Create password for the default user
 echo "$USERNAME:$PASSWORD" | sudo LANG=C chroot $FILESYSTEM_ROOT chpasswd
+
+## Change root passwd, root:$PASSWORD. Add autologin conf.
+echo "admin:admin" | sudo LANG=C chroot $FILESYSTEM_ROOT chpasswd
+sudo mkdir -p $FILESYSTEM_ROOT/etc/systemd/system/serial-getty@ttyS0.service.d
+sudo chmod 777 $FILESYSTEM_ROOT/etc/systemd/system/serial-getty@ttyS0.service.d
+sudo echo "[Service]" >> $FILESYSTEM_ROOT/etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
+sudo echo "ExecStart=" >> $FILESYSTEM_ROOT/etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
+sudo echo "ExecStart=-/sbin/agetty --autologin root --noclear %I 115200 linux" >> $FILESYSTEM_ROOT/etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
+
 
 ## Create redis group
 sudo LANG=C chroot $FILESYSTEM_ROOT groupadd -f redis
@@ -304,7 +317,90 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     conntrack               \
     python-pip              \
     jq                      \
-    haveged
+    haveged                 \
+    makedumpfile            \
+    linux-kbuild-4.9        \
+    linux-compiler-gcc-6-x86 \
+    firmware-qlogic         \
+    firmware-qlogic         \
+    cpp                     \
+    flex                    \
+    git                     \
+    libtool                 \
+    aspell                  \
+    build-essential         \
+    g++                     \
+    libbz2-dev              \
+    libc6-dev               \
+    libelf-dev              \
+    libgmp10                \
+    libgoogle-perftools-dev \
+    pkg-config              \
+    python-cffi             \
+    python-dev              \
+    systemd                 \
+    libgc-dev               \
+    libglib2.0-dev          \
+    cscope                  \
+    doxygen                 \
+    doxypy                  \
+    bison                   \
+    libevent-dev            \
+    libssl-dev              \
+    python3.5-dev           \
+    python-scapy            \
+    libcurl4-gnutls-dev     \
+    libusb-1.0-0-dev        \
+    aspell-en               \
+    libpcap-dev             \
+    autoconf                \
+    automake                \
+    libgflags-dev           \
+    libgtest-dev            \
+    clang                   \
+    libc++-dev              \
+    python3-setuptools      \
+    python3-dev             \
+    python3-pip             \
+    python3-venv            \
+    python3-wheel           \
+    python-wheel            \
+    python-wheel-common     \
+    libnl-route-3-dev       \
+    libnl-genl-3-dev        \
+    libxml-simple-perl      \
+    make                    \
+    wget                    \
+    python-pip              \
+    python3-pip             \
+    sshpass                 \
+    expect                  \
+    stress
+
+sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT pip install      \
+    pyyaml                  \
+    six	
+
+sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT pip3 install      \
+    crc16                   \
+    crcmod                  \
+    ipaddress               \
+    jsl                     \
+    jsonschema==2.6.0       \
+    packaging               \
+    ply                     \
+    simplejson              \
+    Tenjin                  \
+    ctypesgen               \
+    doxypy                  \
+    pyyaml                  \
+    six
+
+
+# Install linux header file
+#sudo dpkg --root=$FILESYSTEM_ROOT -i $debs_path/firmware-qlogic_*_all.deb
+sudo dpkg --root=$FILESYSTEM_ROOT -i target/debs/stretch/linux-headers-*_all.deb
+sudo dpkg --root=$FILESYSTEM_ROOT -i target/debs/stretch/linux-headers-*_amd64.deb
 
 
 if [[ $CONFIGURED_ARCH == amd64 ]]; then
@@ -313,6 +409,11 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     flashrom                \
     mcelog
 fi
+
+## Config i2c-i801
+sudo chmod 777 $FILESYSTEM_ROOT/etc/modprobe.d
+sudo echo "options i2c-i801 disable_features=0x10" > $FILESYSTEM_ROOT/etc/modprobe.d/i2c-i801.conf 
+
 
 ## Set /etc/shadow permissions to -rw-------.
 sudo LANG=c chroot $FILESYSTEM_ROOT chmod 600 /etc/shadow
@@ -372,8 +473,10 @@ save
 quit
 EOF
 # Configure sshd to listen for v4 connections; disable listening for v6 connections
+sudo augtool --autosave "set /files/etc/ssh/sshd_config/UseDNS no" -r $FILESYSTEM_ROOT
 sudo sed -i 's/^ListenAddress ::/#ListenAddress ::/' $FILESYSTEM_ROOT/etc/ssh/sshd_config
 sudo sed -i 's/^#ListenAddress 0.0.0.0/ListenAddress 0.0.0.0/' $FILESYSTEM_ROOT/etc/ssh/sshd_config
+sudo sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' $FILESYSTEM_ROOT/etc/ssh/sshd_config
 
 sudo mkdir -p $FILESYSTEM_ROOT/var/core
 
@@ -412,7 +515,7 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
 sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install 'netifaces==0.10.7'
 
 # Install scapy
-sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install 'scapy==2.4.4'
+#sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install 'scapy==2.4.4'
 
 ## Create /var/run/redis folder for docker-database to mount
 sudo mkdir -p $FILESYSTEM_ROOT/var/run/redis
@@ -494,7 +597,7 @@ then
 fi
 
 ## Remove gcc and python dev pkgs
-sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y remove gcc libpython2.7-dev
+#sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y remove gcc libpython2.7-dev
 
 ## Update initramfs
 sudo chroot $FILESYSTEM_ROOT update-initramfs -u

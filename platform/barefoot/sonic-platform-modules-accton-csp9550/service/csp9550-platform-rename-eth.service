@@ -1,0 +1,16 @@
+[Unit]
+Description=CSP-9550 change eth* service
+After=csp9550-platform-init.service sys-subsystem-net-devices-usb0.device
+Requires=csp9550-platform-init.service sys-subsystem-net-devices-usb0.device
+DefaultDependencies=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/csp9550_rename_eth.py
+RemainAfterExit=yes
+
+# Resource Limitations
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target
