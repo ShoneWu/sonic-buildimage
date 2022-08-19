@@ -1,0 +1,16 @@
+[Unit]
+Description=Accton CSP7551 change eth* service
+After=csp7551-platform-init.service
+Requires=csp7551-platform-init.service
+DefaultDependencies=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/accton_csp7551_rename_eth.py
+RemainAfterExit=yes
+
+# Resource Limitations
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target
