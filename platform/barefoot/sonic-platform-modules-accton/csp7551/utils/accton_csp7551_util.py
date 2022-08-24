@@ -194,6 +194,10 @@ rm_kos = [
 
 def driver_install():
     global FORCE
+    #Reinstall i2c-i801 drvier to fix interrupt storm
+    log_os_system("modprobe -r i2c_i801", 1)
+    log_os_system("modprobe i2c_i801", 1)
+    
     status = os.system("lsmod | grep ast")
     if status == 0:
         log_os_system("rmmod -f ast", 1)
@@ -209,6 +213,7 @@ def driver_install():
         os.system("modprobe -r ice")
         os.system("cp /usr/lib/modules/{}/updates/drivers/net/ethernet/intel/ice/ice.ko /usr/lib/modules/{}/kernel/drivers/net/ethernet/intel/ice/ice.ko".format(kervel_version,kervel_version))
         os.system("update-initramfs -u")
+    
     for i in range(0,len(kos)):
         log_os_system(kos[i], 1)
 
@@ -247,11 +252,7 @@ mknod =[
 
 def device_install():
     global FORCE
-    status, kervel_version = log_os_system("uname -r",0)
-    if kervel_version == "4.19.0-12-2-amd64":
-        mknod.append('echo 24cxb04 0x57 > /sys/bus/i2c/devices/i2c-0/new_device')
-    else:
-        mknod.append('echo 24c64 0x57 > /sys/bus/i2c/devices/i2c-0/new_device')
+    mknod.append('echo 24cxb04 0x57 > /sys/bus/i2c/devices/i2c-0/new_device')
 
     for i in range(0,len(mknod)):
         #for pca954x need times to built new i2c buses

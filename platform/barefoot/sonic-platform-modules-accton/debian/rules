@@ -50,6 +50,7 @@ build:
 		cd $(MOD_SRC_DIR)/$${mod}; \
 		if [ -f sonic_platform_setup.py ]; then \
 			$(PYTHON3) sonic_platform_setup.py bdist_wheel -d $(MOD_SRC_DIR)/$${mod}; \
+            $(PYTHON) sonic_platform_setup.py bdist_wheel -d $(MOD_SRC_DIR)/$${mod}; \
 			echo "Finished makig whl package for $$mod"; \
 		fi; \
 		if [ $$mod = "csp7551" ]; then \
@@ -96,6 +97,7 @@ binary-indep:
 		if [ -f $${mod}/sonic_platform_setup.py ]; then \
 			cd $(MOD_SRC_DIR)/$${mod}; \
 			$(PYTHON3) sonic_platform_setup.py install --root=$(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod} --install-layout=deb; \
+            $(PYTHON) sonic_platform_setup.py install --root=$(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod} --install-layout=deb; \
 			echo "Insalled whl package for $$mod"; \
 			cd $(MOD_SRC_DIR); \
 		fi; \

@@ -38,7 +38,9 @@ class Chassis(ChassisBase):
         self._api_helper = APIHelper()
         self.is_host = self._api_helper.is_host()
         self.config_data = {}
-        self.__initialize_fan_drawers()
+        # Use fan initialize instead fan_drawers initialization of for 201911 SONiC
+        self.__initialize_fan()
+        #self.__initialize_fan_drawers()
         self.__initialize_psu()
         self.__initialize_thermals()
         self.__initialize_components()
@@ -51,7 +53,15 @@ class Chassis(ChassisBase):
             sfp = Sfp(index)
             self._sfp_list.append(sfp)
         self.sfp_module_initialized = True
-        
+    
+    # Use fan instead initialization of for 201911 SONiC
+    def __initialize_fan(self):
+        from sonic_platform.fan import Fan
+        for fant_index in range(0, NUM_FAN_TRAY):
+            for fan_index in range(0, NUM_FAN):
+                fan = Fan(fant_index, fan_index)
+                self._fan_list.append(fan)
+    
     def __initialize_fan_drawers(self):
         from sonic_platform.fan_drawers import FanDrawer
         for fant_index in range(0, NUM_FAN_TRAY):

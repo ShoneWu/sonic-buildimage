@@ -13,7 +13,8 @@ import sys
 from ctypes import create_string_buffer
 
 try:
-    from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase    
+    #from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase
+    from sonic_platform_base.sfp_base import SfpBase
     from sonic_platform_base.sonic_sfp.sff8436 import sff8436Dom
     from sonic_platform_base.sonic_sfp.sff8436 import sff8436InterfaceId
     from sonic_platform_base.sonic_sfp.sff8472 import sff8472Dom
@@ -201,7 +202,7 @@ SFP_PORT_END = 0
 FPGA_PORT_START=33
 FPGA_PORT_END=56
 
-class Sfp(SfpOptoeBase):
+class Sfp(SfpBase):
     """Platform-specific Sfp class"""
 
     # Port number
@@ -276,7 +277,7 @@ class Sfp(SfpOptoeBase):
         self.threshold_dict_keys = ['temphighalarm', 'temphighwarning', 'templowalarm', 'templowwarning', 'vcchighalarm', 'vcchighwarning', 'vcclowalarm', 'vcclowwarning', 'rxpowerhighalarm', 'rxpowerhighwarning',
                                     'rxpowerlowalarm', 'rxpowerlowwarning', 'txpowerhighalarm', 'txpowerhighwarning', 'txpowerlowalarm', 'txpowerlowwarning', 'txbiashighalarm', 'txbiashighwarning', 'txbiaslowalarm', 'txbiaslowwarning']
 
-        SfpOptoeBase.__init__(self)
+        SfpBase.__init__(self)
         self._detect_sfp_type()
 
         self._dom_capability_detect()
@@ -430,7 +431,7 @@ class Sfp(SfpOptoeBase):
             if qsfp_dom_capability_raw is not None:
                 qsfp_version_compliance_raw = self.__read_eeprom_specific_bytes(QSFP_VERSION_COMPLIANCE_OFFSET, QSFP_VERSION_COMPLIANCE_WIDTH)
                 qsfp_version_compliance = int(qsfp_version_compliance_raw[0], 16)
-                dom_capability = sfpi_obj.parse_dom_capability(qsfp_dom_capability_raw, 0)
+                dom_capability = sfpi_obj.parse_qsfp_dom_capability(qsfp_dom_capability_raw, 0)
                 if qsfp_version_compliance >= 0x08:
                     self.dom_temp_supported = dom_capability['data']['Temp_support']['value'] == 'On'
                     self.dom_volt_supported = dom_capability['data']['Voltage_support']['value'] == 'On'
@@ -472,7 +473,7 @@ class Sfp(SfpOptoeBase):
             if qsfp_dom_capability_raw is not None:
                 self.dom_temp_supported = True
                 self.dom_volt_supported = True
-                dom_capability = sfpi_obj.parse_dom_capability(qsfp_dom_capability_raw, 0)
+                dom_capability = sfpi_obj.parse_qsfp_dom_capability(qsfp_dom_capability_raw, 0)
                 if dom_capability['data']['Flat_MEM']['value'] == 'Off':
                     self.dom_supported = True
                     self.second_application_list = True
@@ -1012,7 +1013,7 @@ class Sfp(SfpOptoeBase):
                 qsfp_dom_capability_raw = self.__read_eeprom_specific_bytes(
                     (offset_xcvr + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
                 if qsfp_dom_capability_raw is not None:
-                    qspf_dom_capability_data = sfpi_obj.parse_dom_capability(
+                    qspf_dom_capability_data = sfpi_obj.parse_qsfp_dom_capability(
                         qsfp_dom_capability_raw, 0)
                 else:
                     return None

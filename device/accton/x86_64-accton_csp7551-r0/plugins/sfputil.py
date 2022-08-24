@@ -69,7 +69,7 @@ class SfpUtil(SfpUtilBase):
             portname = line.split()[0]             
             fp_port_index = int(line.split()[title.index("index")])               
             number = portname[8:] 
-            self.port_to_i2c_mapping.setdefault(fp_port_index,int((int(number)-1)/4+1))
+            self.port_to_i2c_mapping.setdefault(fp_port_index,int((int(number))/4+1))
             
         
         self._port_end = fp_port_index
