@@ -1,0 +1,16 @@
+[Unit]
+Description=Accton CSP-7551 set boot OK to CPLD
+Before=pmon.service
+After=sysinit.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/boot_ok.sh
+RemainAfterExit=yes
+
+# Resource Limitations
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target

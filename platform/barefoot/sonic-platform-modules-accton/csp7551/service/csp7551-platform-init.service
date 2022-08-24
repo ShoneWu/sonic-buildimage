@@ -1,0 +1,17 @@
+[Unit]
+Description=Accton CSP7551 Platform Monitoring service
+Before=pmon.service
+After=sysinit.target
+DefaultDependencies=no
+
+[Service]
+ExecStartPre=/usr/local/bin/accton_csp7551_util.py -f clean
+ExecStart=/usr/local/bin/accton_csp7551_util.py install
+Restart=on-failure
+RestartSec=10s
+
+# Resource Limitations
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target
