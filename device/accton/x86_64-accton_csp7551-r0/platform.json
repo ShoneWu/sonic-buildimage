@@ -171,13 +171,13 @@
                 "4x25G[10G]": ["Ethernet32", "Ethernet33", "Ethernet34", "Ethernet35"]
             }
         },
-        "Ethernet37": {
+        "Ethernet36": {
             "index": "10,10,10,10",
             "lanes": "36,37,38,39",
             "breakout_modes": {
-                "1x100G[40G]": ["Ethernet37"],
-                "2x50G": ["Ethernet37", "Ethernet38"],
-                "4x25G[10G]": ["Ethernet37", "Ethernet37", "Ethernet38", "Ethernet39"]
+                "1x100G[40G]": ["Ethernet36"],
+                "2x50G": ["Ethernet36", "Ethernet38"],
+                "4x25G[10G]": ["Ethernet36", "Ethernet37", "Ethernet38", "Ethernet39"]
             }
         },
         "Ethernet40": {
