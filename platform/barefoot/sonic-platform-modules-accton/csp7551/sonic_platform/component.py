@@ -147,10 +147,10 @@ class Component(ComponentBase):
         for cpld_name in CPLD_ADDR_MAPPING:
             if cpld_name == "SYS_CPLD":
                 try:
-                    result = subprocess.run(['busybox', 'devmem', '0xfc800001', '8'], stdout=subprocess.PIPE)
-                    cpld_major_version_raw = result.stdout.decode('ascii').rstrip()
-                    result = subprocess.run(['busybox', 'devmem', '0xfc800002', '8'], stdout=subprocess.PIPE)
-                    cpld_minor_version_raw = result.stdout.decode('ascii').rstrip()
+                    cmd = "busybox devmem 0xfc800001 8"
+                    cpld_major_version_raw = subprocess.check_output(cmd, shell=True).decode('ascii').rstrip()
+                    cmd = "busybox devmem 0xfc800002 8"
+                    cpld_minor_version_raw = subprocess.check_output(cmd, shell=True).decode('ascii').rstrip()
                     cpld_version[cpld_name] = "{}.{}".format(int(cpld_major_version_raw,16),int(cpld_minor_version_raw,16))
                 except Exception as e:
                     print('Get exception when read SYS CPLD version.')
@@ -182,11 +182,11 @@ class Component(ComponentBase):
         try:
             bar0 = subprocess.check_output("lspci -s $(lspci | grep Xilinx | cut -d \" \" -f 1) -v | grep \"Memory at\" | cut -d \" \" -f 3 | cut -c1-6", shell=True).decode('ascii').rstrip()
             bar0_addr = "0x{}{}".format(bar0, '01')
-            result = subprocess.run(['busybox', 'devmem', bar0_addr, '8'], stdout=subprocess.PIPE)
-            fpga_major_version_raw = result.stdout.decode('ascii').rstrip()
+            cmd = "busybox devmem {} 8".format(bar0_addr)
+            fpga_major_version_raw = subprocess.check_output(cmd, shell=True).decode('ascii').rstrip()
             bar0_addr = "0x{}{}".format(bar0, '00')
-            result = subprocess.run(['busybox', 'devmem', bar0_addr, '8'], stdout=subprocess.PIPE)
-            fpga_minor_version_raw = result.stdout.decode('ascii').rstrip()
+            cmd = "busybox devmem {} 8".format(bar0_addr)
+            fpga_minor_version_raw = subprocess.check_output(cmd, shell=True).decode('ascii').rstrip()
             fpga_version = "{}.{}".format(int(fpga_major_version_raw,16),int(fpga_minor_version_raw,16))
             return fpga_version
         except Exception as e:
