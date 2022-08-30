@@ -59,7 +59,11 @@ class Chassis(ChassisBase):
         from sonic_platform.fan import Fan
         for fant_index in range(0, NUM_FAN_TRAY):
             for fan_index in range(0, NUM_FAN):
-                fan = Fan(fant_index, fan_index)
+                if fant_index < 4:
+                    fan = Fan(fant_index, fan_index)
+                else:
+                    fan = Fan(fant_index, 0, is_psu_fan=True, psu_index=fant_index-4)
+                    
                 self._fan_list.append(fan)
     
     def __initialize_fan_drawers(self):
