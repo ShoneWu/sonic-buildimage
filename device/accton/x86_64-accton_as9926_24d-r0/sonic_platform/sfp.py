@@ -168,19 +168,19 @@ QSFP_DD_TEMPE_OFFSET = 14
 QSFP_DD_TEMPE_WIDTH = 2
 QSFP_DD_VOLT_OFFSET = 16
 QSFP_DD_VOLT_WIDTH = 2
-QSFP_DD_TX_BIAS_OFFSET = 42
+QSFP_DD_TX_BIAS_OFFSET = 170
 QSFP_DD_TX_BIAS_WIDTH = 16
-QSFP_DD_RX_POWER_OFFSET = 58
+QSFP_DD_RX_POWER_OFFSET = 186
 QSFP_DD_RX_POWER_WIDTH = 16
-QSFP_DD_TX_POWER_OFFSET = 26
+QSFP_DD_TX_POWER_OFFSET = 154
 QSFP_DD_TX_POWER_WIDTH = 16
 QSFP_DD_CHANNL_MON_OFFSET = 154
 QSFP_DD_CHANNL_MON_WIDTH = 48
-QSFP_DD_CHANNL_DISABLE_STATUS_OFFSET = 86
+QSFP_DD_CHANNL_DISABLE_STATUS_OFFSET = 130
 QSFP_DD_CHANNL_DISABLE_STATUS_WIDTH = 1
-QSFP_DD_CHANNL_RX_LOS_STATUS_OFFSET = 19
+QSFP_DD_CHANNL_RX_LOS_STATUS_OFFSET = 147
 QSFP_DD_CHANNL_RX_LOS_STATUS_WIDTH = 1
-QSFP_DD_CHANNL_TX_FAULT_STATUS_OFFSET = 7
+QSFP_DD_CHANNL_TX_FAULT_STATUS_OFFSET = 135
 QSFP_DD_CHANNL_TX_FAULT_STATUS_WIDTH = 1
 QSFP_DD_MODULE_THRESHOLD_OFFSET = 0
 QSFP_DD_MODULE_THRESHOLD_WIDTH = 72
@@ -515,8 +515,7 @@ class Sfp(SfpBase):
                     self.dom_tx_power_supported = True
                     self.dom_tx_bias_power_supported = True
                     self.dom_thresholds_supported = True
-                    # currently set to False becasue Page 11h is not supported by FW
-                    self.dom_rx_tx_power_bias_supported = False
+                    self.dom_rx_tx_power_bias_supported = True
                 else:
                     self.dom_supported = False
                     self.second_application_list = False
@@ -1044,8 +1043,9 @@ class Sfp(SfpBase):
 
             if self.dom_rx_tx_power_bias_supported:
                 # page 11h
+                offset = (0x11 * 128)
                 dom_data_raw = self._read_eeprom_specific_bytes(
-                    (QSFP_DD_CHANNL_MON_OFFSET), QSFP_DD_CHANNL_MON_WIDTH)
+                    (offset + QSFP_DD_CHANNL_MON_OFFSET), QSFP_DD_CHANNL_MON_WIDTH)
                 if dom_data_raw is None:
                     return transceiver_dom_info_dict
                 dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(
@@ -1381,7 +1381,7 @@ class Sfp(SfpBase):
         elif self.sfp_type == QSFP_DD_TYPE:
             # page 11h
             if self.dom_rx_tx_power_bias_supported:
-                offset = 128
+                offset = (0x11 * 128)
                 dom_channel_monitor_raw = self._read_eeprom_specific_bytes(
                     (offset + QSFP_DD_CHANNL_RX_LOS_STATUS_OFFSET),
                     QSFP_DD_CHANNL_RX_LOS_STATUS_WIDTH)
@@ -1435,7 +1435,7 @@ class Sfp(SfpBase):
         elif self.sfp_type == QSFP_DD_TYPE:
             # page 11h
             if self.dom_rx_tx_power_bias_supported:
-                offset = 128
+                offset = (0x11 * 128)
                 dom_channel_monitor_raw = self._read_eeprom_specific_bytes(
                     (offset + QSFP_DD_CHANNL_TX_FAULT_STATUS_OFFSET),
                     QSFP_DD_CHANNL_TX_FAULT_STATUS_WIDTH)
@@ -1490,7 +1490,8 @@ class Sfp(SfpBase):
 
         elif self.sfp_type == QSFP_DD_TYPE:
             if self.dom_rx_tx_power_bias_supported:
-                offset = 128
+                # Page 10h
+                offset = (0x10 * 128)
                 dom_channel_monitor_raw = self._read_eeprom_specific_bytes(
                     (offset + QSFP_DD_CHANNL_DISABLE_STATUS_OFFSET),
                     QSFP_DD_CHANNL_DISABLE_STATUS_WIDTH)
@@ -1777,7 +1778,7 @@ class Sfp(SfpBase):
             default = [0.0] * 8
             # page 11h
             if self.dom_rx_tx_power_bias_supported:
-                offset = 128
+                offset = (0x11 * 128)
                 sfpd_obj = qsfp_dd_Dom()
                 if sfpd_obj is None:
                     return default
@@ -1873,9 +1874,9 @@ class Sfp(SfpBase):
 
         elif self.sfp_type == QSFP_DD_TYPE:
             default = [0.0] * 8
-            # page 11
+            # page 11h
             if self.dom_rx_tx_power_bias_supported:
-                offset = 128
+                offset = (0x11 * 128)
                 sfpd_obj = qsfp_dd_Dom()
                 if sfpd_obj is None:
                     return default
@@ -1974,9 +1975,9 @@ class Sfp(SfpBase):
         elif self.sfp_type == QSFP_DD_TYPE:
             default = [0.0] * 8
 
-            # page 11
+            # page 11h
             if self.dom_rx_tx_power_bias_supported:
-                offset = 128
+                offset = (0x11 * 128)
                 sfpd_obj = qsfp_dd_Dom()
                 if sfpd_obj is None:
                     return default
