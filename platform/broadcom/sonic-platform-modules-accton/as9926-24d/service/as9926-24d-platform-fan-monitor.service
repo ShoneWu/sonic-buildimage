@@ -1,0 +1,12 @@
+[Unit]
+Description=Accton AS9926-24D Platform fan monitor service
+Before=pmon.service
+After=as9926-24d-platform-monitor.service
+DefaultDependencies=no
+
+[Service]
+ExecStart=/usr/bin/python -u /usr/local/bin/accton_as9926_24d_fan_monitor.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
