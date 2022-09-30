@@ -14,6 +14,8 @@ except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
 PSU_FAN_MAX_RPM = 25500
+FAN_FRONT_MAX_RPM = 21400
+FAN_REAR_MAX_RPM = 22100
 
 CPLD_I2C_PATH = "/sys/bus/i2c/devices/17-0066/fan"
 PSU_HWMON_I2C_PATH = ["/sys/bus/i2c/devices/10-0059/", "/sys/bus/i2c/devices/9-0058/"]
@@ -81,11 +83,11 @@ class Fan(FanBase):
                 return 0
 
         elif self.get_presence():
-            input_path = "{}{}{}".format(CPLD_I2C_PATH, self.fan_tray_index+1, '_input')
+            input_path = "{}{}{}{}".format(CPLD_I2C_PATH, "1" if (self.fan_index == 1) else "", self.fan_tray_index+1, '_input')
             speed_input = self._api_helper.read_txt_file(input_path)
 
-            max_path = "{}{}".format(CPLD_I2C_PATH, '_max_speed_rpm')
-            speed_max = self._api_helper.read_txt_file(max_path)
+
+            speed_max = FAN_REAR_MAX_RPM if (self.fan_index == 1) else FAN_FRONT_MAX_RPM
 
             if speed_input is None or speed_max is None:
                 return 0
