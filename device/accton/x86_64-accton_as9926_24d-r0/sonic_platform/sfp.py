@@ -1575,7 +1575,7 @@ class Sfp(SfpBase):
 
     def get_power_set(self):
 
-        if self._port_num > 32:
+        if self._port_num > 24:
             # SFP doesn't support this feature
             return False
         else:
@@ -2165,7 +2165,7 @@ class Sfp(SfpBase):
             A boolean, True if power-override and power_set are set successfully,
             False if not
         """
-        if 54 <= self._port_num <= 55:
+        if self._port_num > 24:
             return False # SFP doesn't support this feature
         else:
             if not self.get_presence():
