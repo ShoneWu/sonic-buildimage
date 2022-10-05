@@ -112,10 +112,10 @@ class Thermal(ThermalBase):
         else:
             raw_temp = self.__read_txt_file(self.hwmon_path)
 
-        if raw_temp is not None:
+        if (raw_temp is not None) and (raw_temp.isdigit()):
             return float(raw_temp)/1000
         else:
-            return 0
+            return None
 
     def get_high_critical_threshold(self):
         """

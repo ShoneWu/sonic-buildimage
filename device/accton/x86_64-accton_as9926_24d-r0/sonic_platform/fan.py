@@ -19,6 +19,7 @@ FAN_REAR_MAX_RPM = 22100
 
 CPLD_I2C_PATH = "/sys/bus/i2c/devices/17-0066/fan"
 PSU_HWMON_I2C_PATH = ["/sys/bus/i2c/devices/10-0059/", "/sys/bus/i2c/devices/9-0058/"]
+PSU_CPLD_I2C_PATH = ["/sys/bus/i2c/devices/10-0051/", "/sys/bus/i2c/devices/9-0050/"]
 
 FAN_NAME_LIST = ["FAN-1F", "FAN-2F", "FAN-3F", "FAN-4F", "FAN-5F", "FAN-6F",
                  "FAN-1R", "FAN-2R", "FAN-3R", "FAN-4R", "FAN-5R", "FAN-6R"]
@@ -72,29 +73,29 @@ class Fan(FanBase):
 
         """
         speed = 0
-        if self.is_psu_fan:
-            psu_fan_path = "{}{}".format(self.psu_hwmon_path, 'psu_fan1_speed_rpm')
-            fan_speed_rpm = self._api_helper.read_txt_file(psu_fan_path)
-            if fan_speed_rpm is not None:
-                speed = int(fan_speed_rpm) * 100 / PSU_FAN_MAX_RPM
+        if self.get_presence():
+            if self.is_psu_fan:
+                psu_fan_path = "{}{}".format(self.psu_hwmon_path, 'psu_fan1_speed_rpm')
+                fan_speed_rpm = self._api_helper.read_txt_file(psu_fan_path)
+                if (fan_speed_rpm is not None) and (fan_speed_rpm.isdigit()):
+                    speed = int(fan_speed_rpm) * 100 / PSU_FAN_MAX_RPM
+                    if speed > 100:
+                        speed = 100
+                else:
+                    return 0
+            else:
+                input_path = "{}{}{}{}".format(CPLD_I2C_PATH, "1" if (self.fan_index == 1) else "", self.fan_tray_index+1, '_input')
+                speed_input = self._api_helper.read_txt_file(input_path)
+
+
+                speed_max = FAN_REAR_MAX_RPM if (self.fan_index == 1) else FAN_FRONT_MAX_RPM
+
+                if speed_input is None or speed_max is None:
+                    return 0
+
+                speed = int(speed_input) * 100 / int(speed_max)
                 if speed > 100:
                     speed = 100
-            else:
-                return 0
-
-        elif self.get_presence():
-            input_path = "{}{}{}{}".format(CPLD_I2C_PATH, "1" if (self.fan_index == 1) else "", self.fan_tray_index+1, '_input')
-            speed_input = self._api_helper.read_txt_file(input_path)
-
-
-            speed_max = FAN_REAR_MAX_RPM if (self.fan_index == 1) else FAN_FRONT_MAX_RPM
-
-            if speed_input is None or speed_max is None:
-                return 0
-
-            speed = int(speed_input) * 100 / int(speed_max)
-            if speed > 100:
-                speed = 100
 
         return int(speed)
 
@@ -165,16 +166,17 @@ class Fan(FanBase):
         Returns:
             bool: True if FAN is present, False if not
         """
-        present_path = "{}{}{}".format(CPLD_I2C_PATH, self.fan_tray_index+1, '_present')
-        val=self._api_helper.read_txt_file(present_path)
-
         if not self.is_psu_fan:
-            if val is not None:
-                return int(val, 10)==1
-            else:
-                return False
+            present_path = "{}{}{}".format(CPLD_I2C_PATH, self.fan_tray_index+1, '_present')
+            val=self._api_helper.read_txt_file(present_path)
         else:
-            return True
+            present_path = "{}{}".format(PSU_CPLD_I2C_PATH[self.psu_index], 'psu_present')
+            val=self._api_helper.read_txt_file(present_path)
+
+        if val is not None:
+            return int(val, 10)==1
+        else:
+            return False
 
     def get_name(self):
         """
