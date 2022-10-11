@@ -28,8 +28,8 @@ CONF_DIR := conf
 ICE_SRC := ice-1.5.8
 ICE_SRC_DIR := $(ICE_SRC)/src
 ICE_INSTALL_DIR := updates/drivers/net/ethernet/intel/ice
-ICE_FIRMWARE_INSTALL_DIR := /usr/lib/firmware/updates/intel/ice/ddp
-ICE_FIRMWARE_INSTALL_DIR2 := /usr/lib/firmware/intel/ice/ddp
+ICE_FIRMWARE_INSTALL_DIR := /lib/firmware/updates/intel/ice/ddp
+ICE_FIRMWARE_INSTALL_DIR2 := /lib/firmware/intel/ice/ddp
 
 COMPONENTS_FW_SRC_DIR := components_fw
 COMPONENTS_FW_INSTALL_DIR := /etc/accton/fw
