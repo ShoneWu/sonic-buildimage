@@ -205,15 +205,13 @@ def driver_install():
     status, kervel_version = log_os_system("uname -r",0)
     
     #os.system("modprobe -r ice")
-    if os.path.isfile("/usr/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version)):
-        os.rename("/usr/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version),"/usr/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko.bak".format(kervel_version))
+    if os.path.isfile("lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version)):
+        os.rename("/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version),"/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko.bak".format(kervel_version))
         os.system("rmmod ast")
-    status,output=log_os_system("modinfo ice| grep version | head -n 1 | cut -d ':'  -f 2", 1)
-    if output.strip() == "0.7.1-k":
-        os.system("modprobe -r ice")
-        os.system("cp /usr/lib/modules/{}/updates/drivers/net/ethernet/intel/ice/ice.ko /usr/lib/modules/{}/kernel/drivers/net/ethernet/intel/ice/ice.ko".format(kervel_version,kervel_version))
-        os.system("update-initramfs -u")
-    
+           
+    os.system("cp -r /lib/modules/{}/updates/drivers/net/ethernet/intel/ice/ /lib/modules/{}/kernel/drivers/net/ethernet/intel/".format(kervel_version,kervel_version))
+    os.system("update-initramfs -u")
+        
     for i in range(0,len(kos)):
         log_os_system(kos[i], 1)
 
