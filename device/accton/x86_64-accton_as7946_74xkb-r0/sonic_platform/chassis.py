@@ -209,3 +209,12 @@ class Chassis(ChassisBase):
         status, sfp_event = SfpEvent(self._sfp_list).get_sfp_event(timeout)
 
         return status, sfp_event
+
+    def get_serial(self):
+        return self._eeprom.get_serial()
+
+    def get_revision(self):
+        return self._eeprom.get_hw_revision()
+
+    def get_model(self):
+        return self._eeprom.get_part_number()
