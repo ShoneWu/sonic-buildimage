@@ -200,3 +200,9 @@ class Chassis(ChassisBase):
         except IndexError:
             sys.stderr.write("SFP index {} out of range (1-{})\n".format(index, len(self._sfp_list)))
         return sfp
+
+    def get_serial(self):
+        return self._eeprom.get_serial()
+        
+    def get_revision(self):
+        return self._eeprom.get_hw_revision()
