@@ -17,6 +17,7 @@
 
 import subprocess
 import time
+import syslog
 
 I210_DRIVER = "igb"
 KR_DRIVER = "ice"
@@ -85,16 +86,16 @@ def diag_item_rename_eth():
                 continue
             # get  eth target  one
             get_driver_cmd = "/usr/sbin/ethtool -i eth%s | grep driver" % i
-            target_driver_name = exec_check_output_no_chk_retcode(get_driver_cmd).split(':')[1].strip()
+            target_driver_name = exec_check_output_no_chk_retcode(get_driver_cmd).decode().split(':')[1].strip()
             get_bus_cmd = "/usr/sbin/ethtool -i eth%s | grep bus-info" % i
-            bus_str_split = exec_check_output_no_chk_retcode(get_bus_cmd).split(':')
+            bus_str_split = exec_check_output_no_chk_retcode(get_bus_cmd).decode().split(':')
             target_bus_major = bus_str_split[2].strip()
             target_bus_minor = float(bus_str_split[3].strip())
             # get  eth compare one
             get_driver_cmd = "/usr/sbin/ethtool -i eth%s | grep driver" % j
-            compare_driver_name = exec_check_output_no_chk_retcode(get_driver_cmd).split(':')[1].strip()
+            compare_driver_name = exec_check_output_no_chk_retcode(get_driver_cmd).decode().split(':')[1].strip()
             get_bus_cmd = "/usr/sbin/ethtool -i eth%s | grep bus-info" % j
-            bus_str_split = exec_check_output_no_chk_retcode(get_bus_cmd).split(':')
+            bus_str_split = exec_check_output_no_chk_retcode(get_bus_cmd).decode().split(':')
             compare_bus_major = bus_str_split[2].strip()
             compare_bus_minor = float(bus_str_split[3].strip())
 
@@ -130,6 +131,16 @@ def diag_item_rename_eth():
     
     
 def __main__():
+    ice_ver = ''
+    
+    # Make sure that the ice-1.6.7 driver is already installed before running rename utility.
+    while 1:
+        time.sleep(1)
+        ice_ver = exec_check_output_no_chk_retcode("cat /sys/module/ice/version").decode().strip()
+        if ice_ver == "1.6.7":
+            syslog.syslog("ice-1.6.7 is already installed")
+            break
+     
     ret = diag_item_rename_eth()
     return ret
 
