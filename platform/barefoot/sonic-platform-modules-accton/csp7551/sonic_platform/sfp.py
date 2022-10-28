@@ -199,7 +199,7 @@ QSFP_DD_PORT_END = 0
 SFP_PORT_START = 0
 SFP_PORT_END = 0
 FPGA_PORT_START=33
-FPGA_PORT_END=56
+FPGA_PORT_END=59
 
 class Sfp(SfpOptoeBase):
     """Platform-specific Sfp class"""
