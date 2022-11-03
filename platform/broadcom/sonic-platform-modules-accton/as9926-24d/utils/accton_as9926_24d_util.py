@@ -344,6 +344,13 @@ def device_install():
             if FORCE == 0:
                 return status
 
+    for i in range(25, 26+1):
+        status, output =log_os_system("echo 0 > /sys/bus/i2c/devices/21-0062/module_tx_disable_"+str(i), 0)
+        if status:
+            print(output)
+            if FORCE == 0:
+                return status
+
     for i in range(0,len(sfp_map)):
         status
         output
