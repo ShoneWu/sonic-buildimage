@@ -187,9 +187,9 @@ rm_kos = [
 'modprobe -r ipmi_devintf',
 'rmmod fpga_driver',
 'rmmod x86-64-accton-csp7551-sfp',
-'rmmod accton_i2c_cpld',
-'rmmod bf_kdrv',
-'rmmod bf_tun'
+'rmmod accton_i2c_cpld'
+#'rmmod bf_kdrv',
+#'rmmod bf_tun'
 ]
 
 def driver_install():
@@ -208,9 +208,10 @@ def driver_install():
     if os.path.isfile("lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version)):
         os.rename("/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version),"/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko.bak".format(kervel_version))
         os.system("rmmod ast")
-           
-    os.system("cp -r /lib/modules/{}/updates/drivers/net/ethernet/intel/ice/ /lib/modules/{}/kernel/drivers/net/ethernet/intel/".format(kervel_version,kervel_version))
-    os.system("update-initramfs -u")
+        
+    if not os.path.isfile("/lib/modules/{}/kernel/drivers/net/ethernet/intel/ice/ice.ko".format(kervel_version)):
+        os.system("cp -r /lib/modules/{}/updates/drivers/net/ethernet/intel/ice/ /lib/modules/{}/kernel/drivers/net/ethernet/intel/".format(kervel_version,kervel_version))
+        os.system("depmod")
         
     for i in range(0,len(kos)):
         log_os_system(kos[i], 1)
