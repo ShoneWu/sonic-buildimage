@@ -207,7 +207,9 @@ def driver_install():
     #os.system("modprobe -r ice")
     if os.path.isfile("lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version)):
         os.rename("/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko".format(kervel_version),"/lib/modules/{}/kernel/drivers/gpu/drm/ast/ast.ko.bak".format(kervel_version))
-        os.system("rmmod ast")
+        status = os.system("lsmod | grep ast")
+        if status == 0:
+            os.system("rmmod ast")
         
     if not os.path.isfile("/lib/modules/{}/kernel/drivers/net/ethernet/intel/ice/ice.ko".format(kervel_version)):
         os.system("cp -r /lib/modules/{}/updates/drivers/net/ethernet/intel/ice/ /lib/modules/{}/kernel/drivers/net/ethernet/intel/".format(kervel_version,kervel_version))
