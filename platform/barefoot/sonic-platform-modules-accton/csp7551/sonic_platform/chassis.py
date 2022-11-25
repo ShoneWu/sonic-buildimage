@@ -19,7 +19,7 @@ except ImportError as e:
 NUM_FAN_TRAY = 6 #4FAN+2PSU
 NUM_FAN = 2
 NUM_PSU = 2
-NUM_THERMAL = 67
+NUM_THERMAL = 50
 NUM_PORT = 59
 NUM_COMPONENT = 8
 HOST_REBOOT_CAUSE_PATH = "/host/reboot-cause/"

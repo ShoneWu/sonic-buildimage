@@ -29,26 +29,26 @@ IPMI_FRU_CMD="ipmitool fru print {0}"
 
 FAN_SENSOR_INDEX={
     0 : {
-        0 : {"name" : "FAN1_FRONT", "index" : 9},
-        1 : {"name" : "FAN1_REAR", "index" : 13}
+        0 : {"name" : "FAN1_FRONT", "index" : 81},
+        1 : {"name" : "FAN1_REAR", "index" : 85}
     },
     1 : {
-        0 : {"name" : "FAN2_FRONT", "index" : 10},
-        1 : {"name" : "FAN2_REAR", "index" : 14}
+        0 : {"name" : "FAN2_FRONT", "index" : 82},
+        1 : {"name" : "FAN2_REAR", "index" : 86}
     },
     2 : {
-        0 : {"name" : "FAN3_FRONT", "index" : 11},
-        1 : {"name" : "FAN3_REAR", "index" : 15}
+        0 : {"name" : "FAN3_FRONT", "index" : 83},
+        1 : {"name" : "FAN3_REAR", "index" : 87}
     },
     3 : {
-        0 : {"name" : "FAN4_FRONT", "index" : 12},
-        1 : {"name" : "FAN4_REAR", "index" : 16}
+        0 : {"name" : "FAN4_FRONT", "index" : 84},
+        1 : {"name" : "FAN4_REAR", "index" : 88}
     },
 }
 
 PSU_FAN_SENSOR_INDEX={
-    0: 219,
-    1: 220
+    0: 89,
+    1: 90
 
 }
 FAN_FRU_INDEX={

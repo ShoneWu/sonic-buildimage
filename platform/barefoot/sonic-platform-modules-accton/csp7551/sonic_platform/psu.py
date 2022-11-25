@@ -32,26 +32,26 @@ PSU_FRU_INDEX={
 }
 PSU_SENSOR_INDEX={
     0:{
-        "vin" : 203,
-        "vout" : 204,
-        "pin" : 205,
-        "iin" : 206,
-        "ambi_temp" : 207,
-        "second_temp" :208,
-        "iout" : 209,
-        "pout" : 217,
-        "fan" : 219
+        "vin" : 150,
+        "vout" : 151,
+        "pin" : 225,
+        "iin" : 202,
+        "ambi_temp" : 43,
+        "second_temp" :44,
+        "iout" : 203,
+        "pout" : 227,
+        "fan" : 89
     },
     1:{
-        "vin" : 211,
-        "vout" : 212,
-        "pin" : 213,
-        "iin" : 214,
-        "ambi_temp" : 215,
-        "second_temp" :216,
-        "iout" : 210,
-        "pout" : 218,
-        "fan" : 220        
+        "vin" : 152,
+        "vout" : 153,
+        "pin" : 226,
+        "iin" : 205,
+        "ambi_temp" : 45,
+        "second_temp" :46,
+        "iout" : 204,
+        "pout" : 228,
+        "fan" : 90        
     },
 }
 
