@@ -25,6 +25,7 @@ MODULE_DIR := modules
 UTILS_DIR := utils
 SERVICE_DIR := service
 CONF_DIR := conf
+UDEV_DIR := udev
 ICE_SRC := ice-1.6.7
 ICE_SRC_DIR := $(ICE_SRC)/src
 ICE_INSTALL_DIR := updates/drivers/net/ethernet/intel/ice
@@ -107,9 +108,11 @@ binary-indep:
 			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(ICE_FIRMWARE_INSTALL_DIR); \
 			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(ICE_FIRMWARE_INSTALL_DIR2); \
 			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(ICE_INSTALL_DIR); \
+                        dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} etc/udev/rules.d; \
 			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(ICE_INSTALL_DIR); \
 			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/../ddp/ice-1.3.26.0.pkg debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR)/ice.pkg; \
 			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/../ddp/ice-1.3.26.0.pkg debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR2)/ice.pkg; \
+                        cp $(MOD_SRC_DIR)/$${mod}/$(UDEV_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/etc/udev/rules.d/; \
 		fi; \
 		if [ -d $${mod}/$(COMPONENTS_FW_SRC_DIR) ]; then \
 			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(COMPONENTS_FW_INSTALL_DIR)/$${mod}/chassis; \
