@@ -763,7 +763,7 @@ class Sfp(SfpOptoeBase):
                     compliance_code_dict)
                 transceiver_info_dict['nominal_bit_rate'] = str(
                     sfp_interface_bulk_data['data']['Nominal Bit Rate(100Mbs)']['value'])
-
+                transceiver_info_dict['application_advertisement'] = 'N/A'
 
                 return transceiver_info_dict
 
@@ -1411,9 +1411,20 @@ class Sfp(SfpOptoeBase):
             # SFP doesn't support this feature
             return False
         else:
-            power_set=self.get_power_set()
-            power_override = self.get_power_override()
-            return power_set and power_override
+            path = "/sys/bus/i2c/devices/{}-0050/sfp_lp_mod_sel"
+            port_ps = path.format(self._port_to_i2c_mapping[self.port_num])
+        
+            try:
+                reg_file = open(port_ps)
+            except IOError as e:
+                print("Error: unable to open file: %s" % str(e))
+                return False
+                
+        reg_value = reg_file.readline().rstrip()
+        if reg_value == '1':
+            return True
+
+        return False
 
     def get_power_set(self):
         if self.port_num >=FPGA_PORT_START and self.port_num <=FPGA_PORT_END:
