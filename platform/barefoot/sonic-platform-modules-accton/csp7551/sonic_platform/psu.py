@@ -365,3 +365,18 @@ class Psu(PsuBase):
         if serial is None:
             return "N/A"
         return serial
+        
+    def get_revision(self):
+        """
+        Retrieves the revision of the device
+        Returns:
+            string: Revision of device
+        """
+        cmd = self.get_fru_command()
+        st1, log1 = self._syscmd(cmd + "|grep Extra")
+        if st1 != 0:
+            return "N/A"
+        revision = log1.split(":")[1].strip()
+        if revision is None:
+            return "N/A"
+        return revision
