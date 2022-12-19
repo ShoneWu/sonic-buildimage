@@ -1,0 +1,35 @@
+#!/bin/sh
+
+kervel_version=$(uname -r)
+ice_version=$(modinfo ice| grep version | head -n 1 | awk '{ print $2}')
+
+case "$1" in
+    configure)
+        udevadm control --reload
+        udevadm trigger --action=add -attr-match=subsystem=net
+        modprobe -r igb
+        if [ "$ice_version" != "1.6.7" ]; then
+            modprobe -r ice
+            cp /usr/lib/modules/$kervel_version/updates/drivers/net/ethernet/intel/ice/ice.ko /usr/lib/modules/$kervel_version/kernel/drivers/net/ethernet/intel/ice/ice.ko
+            update-initramfs -u
+        fi
+        modprobe igb
+        modprobe devlink
+        modprobe ice
+        ;;
+ 
+    triggered)
+        ;;
+ 
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+ 
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+ 
+#DEBHELPER#
+ 
+exit 0

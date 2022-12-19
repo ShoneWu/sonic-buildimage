@@ -20,11 +20,20 @@ PACKAGE_PRE_NAME := sonic-platform-accton
 KVERSION   ?= $(shell uname -r)
 KERNEL_SRC :=  /lib/modules/$(KVERSION)
 MOD_SRC_DIR:= $(shell pwd)
-MODULE_DIRS := wedge100bf-32qs
+MODULE_DIRS := wedge100bf-32qs csp7551
 MODULE_DIR := modules
 UTILS_DIR := utils
 SERVICE_DIR := service
 CONF_DIR := conf
+UDEV_DIR := udev
+ICE_SRC := ice-1.6.7
+ICE_SRC_DIR := $(ICE_SRC)/src
+ICE_INSTALL_DIR := updates/drivers/net/ethernet/intel/ice
+ICE_FIRMWARE_INSTALL_DIR := /usr/lib/firmware/updates/intel/ice/ddp
+ICE_FIRMWARE_INSTALL_DIR2 := /usr/lib/firmware/intel/ice/ddp
+
+COMPONENTS_FW_SRC_DIR := components_fw
+COMPONENTS_FW_INSTALL_DIR := /etc/accton/fw
 
 %:
 	dh $@ --with systemd,python2,python3 --buildsystem=pybuild
@@ -43,6 +52,11 @@ build:
 		if [ -f sonic_platform_setup.py ]; then \
 			$(PYTHON3) sonic_platform_setup.py bdist_wheel -d $(MOD_SRC_DIR)/$${mod}; \
 			echo "Finished makig whl package for $$mod"; \
+		fi; \
+                if [ $$mod = "csp7551" ]; then \
+			rm -rf $(ICE_SRC); \
+			tar -xzvf $(ICE_SRC).tar.gz -C $(MOD_SRC_DIR)/$${mod}; \
+			make -C $(ICE_SRC_DIR) KSRC=$(KERNEL_SRC)/build; \
 		fi; \
 		cd $(MOD_SRC_DIR); \
 	done)
@@ -89,6 +103,20 @@ binary-indep:
 		if [ $$mod = "wedge100bf-32qs" ]; then \
 			dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} etc/network/interfaces.d; \
 			cp $(MOD_SRC_DIR)/$${mod}/$(CONF_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/etc/network/interfaces.d; \
+		fi; \
+        if [ $$mod = "csp7551" ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(ICE_FIRMWARE_INSTALL_DIR); \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(ICE_FIRMWARE_INSTALL_DIR2); \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(ICE_INSTALL_DIR); \
+                        dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} etc/udev/rules.d; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(ICE_INSTALL_DIR); \
+			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/../ddp/ice-1.3.26.0.pkg debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR)/ice.pkg; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(ICE_SRC_DIR)/../ddp/ice-1.3.26.0.pkg debian/$(PACKAGE_PRE_NAME)-$${mod}/$(ICE_FIRMWARE_INSTALL_DIR2)/ice.pkg; \
+                        cp $(MOD_SRC_DIR)/$${mod}/$(UDEV_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/etc/udev/rules.d/; \
+		fi; \
+		if [ -d $${mod}/$(COMPONENTS_FW_SRC_DIR) ]; then \
+			dh_installdirs -p $(PACKAGE_PRE_NAME)-$${mod} $(COMPONENTS_FW_INSTALL_DIR)/$${mod}/chassis; \
+			cp $(MOD_SRC_DIR)/$${mod}/$(COMPONENTS_FW_SRC_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/$(COMPONENTS_FW_INSTALL_DIR)/$${mod}/chassis; \
 		fi; \
 	done)
 	# Resuming debhelper scripts
