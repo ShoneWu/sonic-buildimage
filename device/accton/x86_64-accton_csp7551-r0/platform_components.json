@@ -1,0 +1,40 @@
+{
+    "chassis": {
+        "Accton-CSP7551": {
+            "component": {
+                "SYS_CPLD": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_ServerCPLD_v0b.1c_I.vme",
+                    "version": "11.28"
+                },
+                "FAN_CPLD": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_FanCPLD_v0a.02.0a.vme",
+                    "version": "2.10"
+                },
+                "PORT_CPLD1": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_SwitchCPLD1_v00.03_SwitchCPLD2_v00.04.vme",
+                    "version": "0.3"
+                },
+                "PORT_CPLD2": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_SwitchCPLD1_v00.03_SwitchCPLD2_v00.04.vme",
+                    "version": "0.4"
+                },
+                "SWITCH_FPGA": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_SwitchFPGA_multiimage_v4b.03.bin",
+                    "version": "75.3"
+                },
+                "BIOS": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_purley-r-bios_v55.01.00.07_me_v04.1.4.700.bin",
+                    "version": "v55.01.00.07"
+                },
+                "BMC": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/csp7551_ast2500_obmc_v00.01.0c.bin",
+                    "version": "0.01.12"
+                },
+                "REFRESH": {
+                    "firmware": "/etc/accton/fw/csp7551/chassis/refresh",
+                    "version" : "0x0"
+                }
+            }
+        }
+    }
+}
