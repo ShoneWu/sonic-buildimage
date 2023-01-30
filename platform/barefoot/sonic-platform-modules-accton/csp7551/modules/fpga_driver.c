@@ -1041,7 +1041,7 @@ long fpga_ioctl(struct file *filp, unsigned int cmd, unsigned long user_addr)
     }
     else
     {
-        ERROR_DEBUG( "[%s] Unknown command\n", __func__);
+        ERROR_DEBUG( "[%s] Unknown command: %d\n", __func__, cmd);
         return(-EINVAL);
     }
 }
@@ -1257,10 +1257,13 @@ static int fpga_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
         /* Default timeout in interrupt mode: 200 ms */
     	fpga_pci_dev->adapter[smbus_temp_num].timeout = HZ / 5;
-
+        
+        /* Fix FPGA I2C bus number from i2c-1 to i2c-34 */
+        fpga_pci_dev->adapter[smbus_temp_num].nr = smbus_temp_num + 1;
         snprintf(fpga_pci_dev->adapter[smbus_temp_num].name, sizeof(fpga_pci_dev->adapter[smbus_temp_num].name),
     		"%s%02d adapter", FPGA_SMBUS_NAME, smbus_temp_num);
-    	retval = i2c_add_adapter(&fpga_pci_dev->adapter[smbus_temp_num]);
+
+        retval = i2c_add_numbered_adapter(&fpga_pci_dev->adapter[smbus_temp_num]);
     	if (retval) {
             ERROR_DEBUG( "[%s] err: 0x%x\n", __func__, retval);
     		goto fail_to_add_i2c_adapter;
