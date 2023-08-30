@@ -109,12 +109,8 @@ run_hookdir() {
 reload_minigraph()
 {
     echo "Reloading minigraph..."
-    if
-    [[ "$(sonic-cfggen -d -v DEVICE_METADATA.localhost.subtype | tr [:upper:] [:lower:])" == *"dualtor"* ]] ||
-    [[ "$(sonic-cfggen -d -v DEVICE_METADATA.localhost.type | tr [:upper:] [:lower:])" == *"leafrouter"* ]];
-    then
-        #Keep device isolated with traffic-shift-away option on LeafRouter and Dualtor
-        config load_minigraph -y -n -t
+    if [ -f /etc/sonic/golden_config_db.json ]; then
+        config load_minigraph -y -n --override_config --golden_config_path '/etc/sonic/golden_config_db.json'
     else
         config load_minigraph -y -n
     fi
@@ -260,6 +256,7 @@ do_config_initialization()
     fi
 
     rm -f /tmp/pending_config_initialization
+    sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
 }
 
 # Restore config-setup post migration hooks from a backup copy
@@ -308,12 +305,23 @@ check_all_config_db_present()
     return 0   
 }
 
+# DB schema is subject to change between two images
+# Perform DB schema migration after loading backup config/minigraph from previous image
+do_db_migration()
+{
+    if [[ -x /usr/local/bin/db_migrator.py ]]; then
+        # Migrate the DB to the latest schema version if needed
+        /usr/local/bin/db_migrator.py -o migrate
+    fi
+    sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
+}
+
 # Perform configuration migration from backup copy.
 #  - This step is performed when a new image is installed and SONiC switch boots into it
 do_config_migration()
 {
     # Identify list of files to migrate
-    copy_list="minigraph.xml snmp.yml acl.json port_config.json frr telemetry"
+    copy_list="minigraph.xml snmp.yml acl.json port_config.json frr telemetry golden_config_db.json"
 
     # Migrate all configuration files from old to new
     copy_config_files_and_directories $copy_list
@@ -330,16 +338,19 @@ do_config_migration()
     if [ x"${WARM_BOOT}" == x"true" ]; then
         echo "Warm reboot detected..."
         disable_updategraph
+        do_db_migration
         rm -f /tmp/pending_config_migration
         exit 0
     elif check_all_config_db_present; then
         echo "Use config_db.json from old system..."
         reload_configdb
+        do_db_migration
         # Disable updategraph
         disable_updategraph
     elif [ -r ${MINGRAPH_FILE} ]; then
         echo "Use minigraph.xml from old system..."
         reload_minigraph
+        do_db_migration
         # Disable updategraph
         disable_updategraph
     else

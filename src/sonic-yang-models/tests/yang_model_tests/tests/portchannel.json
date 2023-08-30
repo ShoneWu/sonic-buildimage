@@ -19,6 +19,11 @@
         "eStrKey" : "Pattern",
         "eStr": ["0x8100|0x9100|0x9200|0x88a8|0x88A8"]
     },
+    "PORT_CHANNEL_INVALID_FALLBACK": {
+        "desc": "INCORRECT PORTCHANNEL FALLBACK IN PORT_CHANNEL TABLE.",
+        "eStrKey" : "Pattern",
+        "eStr": ["false|true|False|True"]
+    },
     "PORTCHANNEL_INTERFACE_IP_ADDR_TEST": {
         "desc": "Configure IP address on PORTCHANNEL_INTERFACE table."
     },
@@ -63,5 +68,12 @@
         "desc": "INCORRECT LOOPBACK ACTION IN PORTCHANNEL_INTERFACE TABLE.",
         "eStrKey" : "Pattern",
         "eStr": ["drop|forward"]
+    },
+    "PORTCHANNEL_INTERFACE_ENABLE_IPV6_LINK_LOCAL": {
+        "desc": "Enable the ipv6 link-local."
+    },
+    "PORTCHANNEL_INTERFACE_INVALID_ENABLE_IPV6_LINK_LOCAL": {
+        "desc": "Enable the ipv6 link-local as true.",
+        "eStr": "Invalid value \"true\" in \"ipv6_use_link_local_only\" element."
     }
 }

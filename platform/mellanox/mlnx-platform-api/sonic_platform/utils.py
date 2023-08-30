@@ -19,6 +19,7 @@ import functools
 import subprocess
 import json
 import sys
+import time
 import os
 from sonic_py_common import device_info
 from sonic_py_common.logger import Logger
@@ -186,18 +187,8 @@ def is_host():
     Test whether current process is running on the host or an docker
     return True for host and False for docker
     """
-    try:
-        proc = subprocess.Popen("docker --version 2>/dev/null",
-                                stdout=subprocess.PIPE,
-                                shell=True,
-                                stderr=subprocess.STDOUT,
-                                universal_newlines=True)
-        stdout = proc.communicate()[0]
-        proc.wait()
-        result = stdout.rstrip('\n')
-        return result != ''
-    except OSError as e:
-        return False
+    docker_env_file = '/.dockerenv'
+    return os.path.exists(docker_env_file) is False
 
 
 def default_return(return_value, log_func=logger.log_debug):
@@ -276,3 +267,21 @@ def extract_RJ45_ports_index():
 
     return RJ45_port_index_list if bool(RJ45_port_index_list) else None
 
+
+def wait_until(predict, timeout, interval=1, *args, **kwargs):
+    """Wait until a condition become true
+
+    Args:
+        predict (object): a callable such as function, lambda
+        timeout (int): wait time in seconds
+        interval (int, optional): interval to check the predict. Defaults to 1.
+
+    Returns:
+        _type_: _description_
+    """
+    while timeout > 0:
+        if predict(*args, **kwargs):
+            return True
+        time.sleep(interval)
+        timeout -= interval
+    return False

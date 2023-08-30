@@ -165,7 +165,7 @@ INCLUDE_MACSEC = y
 
 # INCLUDE_KUBERNETES - if set to y kubernetes packages are installed to be able to
 # run as worker node in kubernetes cluster.
-INCLUDE_KUBERNETES = n
+INCLUDE_KUBERNETES ?= n
 
 KUBE_DOCKER_PROXY = http://172.16.1.1:3128/
 
@@ -174,9 +174,24 @@ KUBE_DOCKER_PROXY = http://172.16.1.1:3128/
 # These are Used *only* when INCLUDE_KUBERNETES=y
 # NOTE: As a worker node it has to run version compatible to kubernetes master.
 #
-KUBERNETES_VERSION = 1.21.1
-KUBERNETES_CNI_VERSION = 0.8.7
-K8s_GCR_IO_PAUSE_VERSION = 3.4.1
+KUBERNETES_VERSION = 1.22.2-00
+KUBERNETES_CNI_VERSION = 0.8.7-00
+K8s_GCR_IO_PAUSE_VERSION = 3.5
+
+# INCLUDE_KUBERNETES_MASTER - if set to y kubernetes packages are installed o be able 
+# to run as master node in kubernetes cluster
+INCLUDE_KUBERNETES_MASTER ?= n
+
+# MASTER_KUBERNETES_VERSION - version of k8s components
+# MASTER_PAUSE_VERSION - version of pause container image
+# MASTER_COREDNS_VERSION - version of coredns container image
+# MASTER_ETCD_VERSION = version of etcd container image
+MASTER_KUBERNETES_VERSION = 1.22.2-00
+MASTER_KUBERNETES_CONTAINER_IMAGE_VERSION = v1.22.2
+MASTER_PAUSE_VERSION = 3.5
+MASTER_COREDNS_VERSION = v1.8.4
+MASTER_ETCD_VERSION = 3.5.0-0
+MASTER_CRI_DOCKERD = 0.2.5
 
 # SONIC_ENABLE_IMAGE_SIGNATURE - enable image signature
 # To not use the auto-generated self-signed certificate, the required files to sign the image as below:
@@ -210,11 +225,15 @@ TRUSTED_GPG_URLS = https://packages.trafficmanager.net/debian/public_key.gpg,htt
 #   docker: docker base images
 SONIC_VERSION_CONTROL_COMPONENTS ?= none
 
+# MIRROR_SNAPSHOT - support mirror snapshot flag
+MIRROR_SNAPSHOT ?= n
+
 # SONiC docker registry
 #
 # Set the env variable ENABLE_DOCKER_BASE_PULL = y to enable pulling sonic-slave docker from registry
 REGISTRY_PORT ?= 443
 REGISTRY_SERVER ?= sonicdev-microsoft.azurecr.io
+REGISTRY_SERVER_PATH ?=
 
 # BUILD_MULTIASIC_KVM - if set to y multi-asic KVM images will be generated.
 BUILD_MULTIASIC_KVM = n
@@ -235,3 +254,6 @@ ENABLE_FIPS ?= n
 
 # SONIC_SLAVE_DOCKER_DRIVER - set the sonic slave docker storage driver
 SONIC_SLAVE_DOCKER_DRIVER ?= vfs
+
+# SONIC_OS_VERSION - sonic os version
+SONIC_OS_VERSION ?= 11

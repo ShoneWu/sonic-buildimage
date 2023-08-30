@@ -14,14 +14,15 @@ WORKDIR /root
 
 MAINTAINER Pavel Shirshov
 
-RUN echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian buster-backports main" >> /etc/apt/sources.list
+COPY ["sources.list.{{ CONFIGURED_ARCH }}", "/etc/apt/sources.list"]
+COPY ["no-check-valid-until", "/etc/apt/apt.conf.d"]
+
 ## Make apt-get non-interactive
 ENV DEBIAN_FRONTEND=noninteractive
 
 ## Set the apt source, update package cache and install necessary packages
 ## TODO: Clean up this step
-RUN sed --in-place 's/httpredir.debian.org/debian-archive.trafficmanager.net/' /etc/apt/sources.list \
-    && apt-get update          \
+RUN apt-get update          \
     && apt-get upgrade -y   \
     && apt-get dist-upgrade -y  \
     && apt-get install -y   \
@@ -136,7 +137,7 @@ RUN rm -rf /debs \
     && cd /opt             \
     && wget https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py
 
-RUN python3 -m venv env-python3
+RUN python3 -m venv --system-site-packages env-python3
 
 # Activating a virtualenv. The virtualenv automatically works for RUN, ENV and CMD.
 ENV VIRTUAL_ENV=/root/env-python3
@@ -173,7 +174,8 @@ RUN python3 -m pip install setuptools \
     && pip3 install itsdangerous \
     && pip3 install retrying \
     && pip3 install jinja2 \
-    && pip3 install scapy==2.4.5
+    && pip3 install scapy==2.4.5 \
+    && pip3 install thrift
 
 {% if docker_ptf_whls.strip() -%}
 # Copy locally-built Python wheel dependencies

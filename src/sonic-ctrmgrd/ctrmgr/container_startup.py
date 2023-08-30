@@ -28,13 +28,17 @@ UNIT_TESTING = 0
 
 def debug_msg(m):
     msg = "{}: {}".format(inspect.stack()[1][3], m)
-    print(msg)
     syslog.syslog(syslog.LOG_DEBUG, msg)
 
 
 def _get_version_key(feature, version):
     # Coin label for version control
     return "{}_{}_enabled".format(feature, version)
+
+
+def _get_local_version_key(feature):
+    # Coin label for track laster local version
+    return "{}_local".format(feature)
 
 
 def read_data(feature):
@@ -88,8 +92,8 @@ def check_version_blocked(state_db, feature, version):
     #
     tbl = swsscommon.Table(state_db, KUBE_LABEL_TABLE)
     labels = dict(tbl.get(KUBE_LABEL_SET_KEY)[1])
-    key = _get_version_key(feature, version)
-    return (key in labels) and (labels[key].lower() == "false")
+    key = _get_local_version_key(feature)
+    return (key in labels) and (labels[key].lower() == version.lower())
 
 
 def drop_label(state_db, feature, version):
@@ -98,8 +102,8 @@ def drop_label(state_db, feature, version):
     # ctrmgrd sets it with kube API server per reaschability
     
     tbl = swsscommon.Table(state_db, KUBE_LABEL_TABLE)
-    name = _get_version_key(feature, version)
-    tbl.set(KUBE_LABEL_SET_KEY, [ (name, "false")])
+    name = _get_local_version_key(feature)
+    tbl.set(KUBE_LABEL_SET_KEY, [(name, version)])
         
 
 def update_data(state_db, feature, data):
@@ -214,6 +218,9 @@ def container_up(feature, owner, version):
     debug_msg("args: feature={}, owner={}, version={} DB: set_owner={} state_data={}".format(
         feature, owner, version, set_owner, json.dumps(state_data, indent=4)))
 
+    if state_data[SYSTEM_STATE] == '':
+        return
+
     if owner == "local":
         update_state(state_db, feature, owner, version)
     else:
@@ -227,15 +234,6 @@ def container_up(feature, owner, version):
 
         if check_version_blocked(state_db, feature, version):
             do_freeze(feature, "This version is marked disabled. Exiting ...")
-            return
-
-        if not instance_higher(feature, state_data[VERSION], version):
-            # TODO: May Remove label <feature_name>_<version>_enabled
-            # Else kubelet will continue to re-deploy every 5 mins, until
-            # master removes the lable to un-deploy.
-            #
-            do_freeze(feature, "bail out as current deploy version {} is not higher".
-                    format(version))
             return
 
         update_data(state_db, feature, { VERSION: version })

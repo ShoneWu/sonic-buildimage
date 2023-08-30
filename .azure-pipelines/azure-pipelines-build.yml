@@ -86,6 +86,14 @@ jobs:
           variables:
             PLATFORM_ARCH: armhf
 
+        - name: marvell-arm64
+          pool: sonicbld-arm64
+          timeoutInMinutes: 2880
+          variables:
+            PLATFORM_ARCH: arm64
+
+        - name: marvell
+
         - name: mellanox
           variables:
             dbg_image: yes
@@ -100,7 +108,8 @@ jobs:
             platform_rpc: nephos
 
     buildSteps:
-      - template: template-skipvstest.yml
+      - template: .azure-pipelines/template-skipvstest.yml@buildimage
+      - template: .azure-pipelines/template-daemon.yml@buildimage
       - bash: |
           set -ex
           if [ $(GROUP_NAME) == vs ]; then
@@ -130,8 +139,19 @@ jobs:
               make $BUILD_OPTIONS target/sonic-$(GROUP_NAME).raw
             fi
             if [ $(docker_syncd_rpc_image) == yes ]; then
+              # workaround for issue in rules/sairedis.dep, git ls-files will list un-exist files for cache
               make $BUILD_OPTIONS ENABLE_SYNCD_RPC=y target/docker-syncd-$(platform_rpc)-rpc.gz
-            fi
+              if [ $(GROUP_NAME) == broadcom ]; then
+                make $BUILD_OPTIONS ENABLE_SYNCD_RPC=y target/docker-syncd-$(platform_rpc)-dnx-rpc.gz
+                make $BUILD_OPTIONS ENABLE_SYNCD_RPC=y SAITHRIFT_V2=y target/docker-saiserverv2-brcm.gz
+              fi
+              if [ $(GROUP_NAME) == marvell-armhf ]; then 
+                make $BUILD_OPTIONS ENABLE_SYNCD_RPC=y SAITHRIFT_V2=y PLATFORM_ARCH=armhf target/docker-saiserverv2-mrvl.gz
+              fi
+              if [ $(GROUP_NAME) == mellanox ]; then
+                make $BUILD_OPTIONS SAITHRIFT_V2=y ENABLE_SYNCD_RPC=y target/docker-saiserverv2-mlnx.gz
+              fi 
+            fi           
             if [ $(syncd_rpc_image) == yes ]; then
               make $BUILD_OPTIONS ENABLE_SYNCD_RPC=y target/sonic-$(GROUP_NAME).bin
               mv target/sonic-mellanox.bin target/sonic-$(GROUP_NAME)-rpc.bin
@@ -139,4 +159,4 @@ jobs:
             make $BUILD_OPTIONS target/sonic-$(GROUP_NAME).bin
           fi
         displayName: "Build sonic image"
-      - template: check-dirty-version.yml
+      - template: .azure-pipelines/check-dirty-version.yml@buildimage

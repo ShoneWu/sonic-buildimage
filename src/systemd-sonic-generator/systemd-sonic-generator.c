@@ -104,7 +104,23 @@ static int get_target_lines(char* unit_file, char* target_lines[]) {
 static bool is_multi_instance_service(char *service_name){
     int i;
     for(i=0; i < num_multi_inst; i++){
-        if (strstr(service_name, multi_instance_services[i]) != NULL) {
+        /*
+         * The service name may contain @.service or .service. Remove these
+         * postfixes and extract service name. Compare service name for absolute
+         * match in multi_instance_services[].
+         * This is to prevent services like database-chassis and systemd-timesyncd marked
+         * as multi instance services as they contain strings 'database' and 'syncd' respectively
+         * which are multi instance services in multi_instance_services[].
+         */
+        char *saveptr;
+        char *token = strtok_r(service_name, "@", &saveptr);
+        if (token) {
+            if (strstr(token, ".service") != NULL) {
+                /* If we are here, service_name did not have '@' delimiter but contains '.service' */
+                token = strtok_r(service_name, ".", &saveptr);
+            }
+        }
+        if (strncmp(service_name, multi_instance_services[i], strlen(service_name)) == 0) {
             return true;
         }
     }
@@ -121,6 +137,7 @@ static int get_install_targets_from_line(char* target_string, char* install_type
     ***/
     char* token;
     char* target;
+    char* saveptr;
     char final_target[PATH_MAX];
     int num_targets = 0;
 
@@ -135,8 +152,8 @@ static int get_install_targets_from_line(char* target_string, char* install_type
         strip_trailing_newline(target);
 
         if (strstr(target, "%") != NULL) {
-            char* prefix = strtok(target, ".");
-            char* suffix = strtok(NULL, ".");
+            char* prefix = strtok_r(target, ".", &saveptr);
+            char* suffix = strtok_r(NULL, ".", &saveptr);
             int prefix_len = strlen(prefix);
 
             strncpy(final_target, prefix, prefix_len - 2);
@@ -516,6 +533,7 @@ int get_num_of_asic() {
     char *line = NULL;
     char* token;
     char* platform;
+    char* saveptr;
     size_t len = 0;
     ssize_t nread;
     bool ans;
@@ -534,8 +552,8 @@ int get_num_of_asic() {
     while ((nread = getline(&line, &len, fp)) != -1) {
         if ((strstr(line, "onie_platform") != NULL) ||
             (strstr(line, "aboot_platform") != NULL)) {
-            token = strtok(line, "=");
-            platform = strtok(NULL, "=");
+            token = strtok_r(line, "=", &saveptr);
+            platform = strtok_r(NULL, "=", &saveptr);
             strip_trailing_newline(platform);
             break;
         }
@@ -547,8 +565,8 @@ int get_num_of_asic() {
         if (fp != NULL) {
             while ((nread = getline(&line, &len, fp)) != -1) {
                 if (strstr(line, "NUM_ASIC") != NULL) {
-                    token = strtok(line, "=");
-                    str_num_asic = strtok(NULL, "=");
+                    token = strtok_r(line, "=", &saveptr);
+                    str_num_asic = strtok_r(NULL, "=", &saveptr);
                     strip_trailing_newline(str_num_asic);
                     if (str_num_asic != NULL){
                         sscanf(str_num_asic, "%d",&num_asic);
@@ -571,6 +589,7 @@ int ssg_main(int argc, char **argv) {
     char* unit_instance;
     char* prefix;
     char* suffix;
+    char* saveptr;
     int num_unit_files;
     int num_targets;
     int r;
@@ -589,11 +608,14 @@ int ssg_main(int argc, char **argv) {
     for (int i = 0; i < num_unit_files; i++) {
         unit_instance = strdup(unit_files[i]);
         if ((num_asics == 1) && strstr(unit_instance, "@") != NULL) {
-            prefix = strtok(unit_instance, "@");
-            suffix = strtok(NULL, "@");
+            prefix = strdup(strtok_r(unit_instance, "@", &saveptr));
+            suffix = strdup(strtok_r(NULL, "@", &saveptr));
 
             strcpy(unit_instance, prefix);
             strcat(unit_instance, suffix);
+
+            free(prefix);
+            free(suffix);
         }
 
         num_targets = get_install_targets(unit_instance, targets);

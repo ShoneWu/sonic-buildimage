@@ -20,13 +20,15 @@ class MuxStateWriter(object):
     Class used to write standby mux state to APP DB
     """
 
-    def __init__(self, activeactive, activestandby):
+    def __init__(self, activeactive, activestandby, shutdown_module):
         self.config_db_connector = None
         self.appl_db_connector = None
         self.state_db_connector = None
         self.asic_db_connector = None
         self.default_active_active_state = activeactive
         self.default_active_standby_state = activestandby
+        self.shutdown_module = shutdown_module
+        self.is_shutdwon = (self.shutdown_module != None)
 
     @property
     def config_db(self):
@@ -35,7 +37,7 @@ class MuxStateWriter(object):
         Initializes the connector during the first call
         """
         if self.config_db_connector is None:
-            self.config_db_connector = ConfigDBConnector()
+            self.config_db_connector = ConfigDBConnector(use_unix_socket_path=True)
             self.config_db_connector.connect()
 
         return self.config_db_connector
@@ -67,7 +69,7 @@ class MuxStateWriter(object):
         Initializes the connector during the first call
         """
         if self.asic_db_connector is None:
-            self.asic_db_connector = SonicV2Connector()
+            self.asic_db_connector = SonicV2Connector(use_unix_socket_path=True)
             self.asic_db_connector.connect('ASIC_DB')
 
         return self.asic_db_connector
@@ -97,7 +99,15 @@ class MuxStateWriter(object):
         tbl = Table(self.state_db, 'WARM_RESTART_ENABLE_TABLE')
         (status, value) = tbl.hget('system', 'enable')
 
-        return status and value == 'true' 
+        if status and value == 'true':
+            return True
+
+        if self.shutdown_module:
+            (status, value) = tbl.hget(self.shutdown_module, 'enable')
+            if status and value == 'true':
+                return True
+
+        return False
 
     def get_all_mux_intfs_modes(self):
         """
@@ -126,7 +136,7 @@ class MuxStateWriter(object):
         tunnel_key_pattern = 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:*'
         return len(self.asic_db.keys('ASIC_DB', tunnel_key_pattern)) > 0
 
-    def wait_for_tunnel(self, interval=1, timeout=60):
+    def wait_for_tunnel(self, interval=1, timeout=90):
         """
         Waits until the IP-in-IP tunnel has been created
 
@@ -153,7 +163,7 @@ class MuxStateWriter(object):
             # If not running on a dual ToR system, take no action
             return
 
-        if self.is_warmrestart:
+        if self.is_warmrestart and self.is_shutdwon:
             # If in warmrestart context, take no action
             logger.log_warning("Skip setting mux state due to ongoing warmrestart.")
             return
@@ -178,6 +188,12 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--active_standby',
                         help='state: intial state for "auto" and/or "manual" config in active-standby mode, default "standby"',
                         type=str, required=False, default='standby')
+    parser.add_argument('--shutdown', help='write mux state after shutdown other services, supported: mux, bgp',
+                        type=str, required=False, choices=['mux', 'bgp'], default=None)
     args = parser.parse_args()
-    mux_writer = MuxStateWriter(activeactive=args.active_active, activestandby=args.active_standby)
+    active_active_state = args.active_active
+    active_standby_state = args.active_standby
+    if args.shutdown in ['mux', 'bgp']:
+        active_active_state = "standby"
+    mux_writer = MuxStateWriter(activeactive=active_active_state, activestandby=active_standby_state, shutdown_module=args.shutdown)
     mux_writer.apply_mux_config()

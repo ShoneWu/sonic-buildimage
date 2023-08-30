@@ -27,10 +27,13 @@ endif
 PYTHON3_SWSSCOMMON = python3-swsscommon_$(LIBSWSSCOMMON_VERSION)_$(CONFIGURED_ARCH).deb
 $(eval $(call add_derived_package,$(LIBSWSSCOMMON),$(PYTHON3_SWSSCOMMON)))
 
-LIBSWSSCOMMON_DBG = $(LIBSWSSCOMMON_NAME)-dbg_$(LIBSWSSCOMMON_VERSION)_$(CONFIGURED_ARCH).deb
+LIBSWSSCOMMON_DBG = $(LIBSWSSCOMMON_NAME)-dbgsym_$(LIBSWSSCOMMON_VERSION)_$(CONFIGURED_ARCH).deb
 $(LIBSWSSCOMMON_DBG)_DEPENDS += $(LIBSWSSCOMMON)
 $(LIBSWSSCOMMON_DBG)_RDEPENDS += $(LIBSWSSCOMMON)
 $(eval $(call add_derived_package,$(LIBSWSSCOMMON),$(LIBSWSSCOMMON_DBG)))
+
+SONIC_DB_CLI = sonic-db-cli_$(LIBSWSSCOMMON_VERSION)_$(CONFIGURED_ARCH).deb
+$(eval $(call add_derived_package,$(LIBSWSSCOMMON),$(SONIC_DB_CLI)))
 
 # The .c, .cpp, .h & .hpp files under src/{$DBG_SRC_ARCHIVE list}
 # are archived into debug one image to facilitate debugging.

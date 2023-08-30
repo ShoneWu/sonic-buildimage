@@ -36,7 +36,7 @@ create_disk()
 
 prepare_installer_disk()
 {
-    fallocate -l 2048M $INSTALLER_DISK
+    fallocate -l 4096M $INSTALLER_DISK
 
     mkfs.vfat $INSTALLER_DISK
 
@@ -47,6 +47,19 @@ prepare_installer_disk()
     cp $INSTALLER $tmpdir/onie-installer.bin
 
     umount $tmpdir
+}
+
+wait_kvm_ready()
+{
+    local count=30
+    local waiting_in_seconds=2.0
+    for ((i=1; i<=$count; i++)); do
+        sleep $waiting_in_seconds
+        echo "$(date) [$i/$count] waiting for the port $KVM_PORT ready"
+        if netstat -l | grep -q ":$KVM_PORT"; then
+          break
+        fi
+    done
 }
 
 apt-get install -y net-tools
@@ -86,7 +99,7 @@ echo "Installing SONiC"
 
 kvm_pid=$!
 
-sleep 2.0
+wait_kvm_ready
 
 [ -d "/proc/$kvm_pid" ] || {
         echo "ERROR: kvm died."
@@ -114,7 +127,7 @@ echo "Booting up SONiC"
 
 kvm_pid=$!
 
-sleep 2.0
+wait_kvm_ready
 
 [ -d "/proc/$kvm_pid" ] || {
         echo "ERROR: kvm died."

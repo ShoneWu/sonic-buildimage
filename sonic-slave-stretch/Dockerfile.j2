@@ -10,40 +10,7 @@ FROM {{ prefix }}debian:stretch
 MAINTAINER gulv@microsoft.com
 
 COPY ["no-check-valid-until", "/etc/apt/apt.conf.d/"]
-
-RUN echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian/ stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=amd64] http://debian-archive.trafficmanager.net/debian/ stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian-security/ stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=amd64] http://debian-archive.trafficmanager.net/debian-security/ stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian stretch-backports main" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.trafficmanager.net/debian/debian stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.trafficmanager.net/debian/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.trafficmanager.net/debian/debian-security stretch_updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.microsoft.com/debian/9/prod stretch main" >> /etc/apt/sources.list
-
-{%- if CONFIGURED_ARCH == "armhf" %}
-RUN echo "deb [arch=armhf] http://deb.debian.org/debian stretch main contrib non-free" > /etc/apt/sources.list && \
-        echo "deb-src [arch=armhf] http://deb.debian.org/debian stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://deb.debian.org/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=armhf] http://deb.debian.org/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://security.debian.org stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=armhf] http://security.debian.org stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo 'deb [arch=armhf] http://ftp.debian.org/debian stretch-backports main' >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://packages.trafficmanager.net/debian/debian stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://packages.trafficmanager.net/debian/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://packages.trafficmanager.net/debian/debian-security stretch_updates main contrib non-free" >> /etc/apt/sources.list
-{%- elif CONFIGURED_ARCH == "arm64" %}
-RUN echo "deb [arch=arm64] http://deb.debian.org/debian stretch main contrib non-free" > /etc/apt/sources.list && \
-        echo "deb-src [arch=arm64] http://deb.debian.org/debian stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://deb.debian.org/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=arm64] http://deb.debian.org/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://security.debian.org stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=arm64] http://security.debian.org stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo 'deb [arch=arm64] http://ftp.debian.org/debian stretch-backports main' >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://packages.trafficmanager.net/debian/debian stretch main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://packages.trafficmanager.net/debian/debian stretch-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://packages.trafficmanager.net/debian/debian-security stretch_updates main contrib non-free" >> /etc/apt/sources.list
-{%- endif %}
+COPY ["sources.list.{{ CONFIGURED_ARCH }}", "/etc/apt/sources.list"]
 
 ## Make apt-get non-interactive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -364,8 +331,8 @@ RUN pip3 install mockredispy==2.9.3
 # For sonic-mgmt-framework
 RUN pip2 install "PyYAML==5.3.1"
 RUN pip3 install "PyYAML==5.3.1"
-RUN pip2 install "lxml==4.6.5"
-RUN pip3 install "lxml==4.6.5"
+RUN pip2 install "lxml==4.9.1"
+RUN pip3 install "lxml==4.9.1"
 
 
 # For sonic-platform-common testing
@@ -387,7 +354,7 @@ RUN pip2 install Pympler==0.8
 RUN pip3 install pyang==2.4.0
 
 # For mgmt-framework build
-RUN pip2 install mmh3
+RUN pip2 install mmh3==2.5.1
 
 # Install dependencies for isc-dhcp-relay build
 RUN apt-get -y build-dep isc-dhcp
@@ -463,6 +430,6 @@ LABEL "com.azure.dev.pipelines.agent.handler.node.path"="/usr/bin/node"
 # Install Bazel build system (amd64 and arm64 architectures are supported using this method)
 # TODO(PINS): Remove once pre-build Bazel binaries are available for armhf (armv7l)
 {%- if CONFIGURED_ARCH == "amd64" or CONFIGURED_ARCH == "arm64" %}
-ARG bazelisk_url=https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-{{ CONFIGURED_ARCH }}
+ARG bazelisk_url=https://github.com/bazelbuild/bazelisk/releases/download/v1.13.0/bazelisk-linux-{{ CONFIGURED_ARCH }}
 RUN curl -fsSL -o /usr/local/bin/bazel ${bazelisk_url} && chmod 755 /usr/local/bin/bazel
 {% endif -%}

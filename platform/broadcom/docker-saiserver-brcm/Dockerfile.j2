@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get -y install  \
     gdb                 \
-    libboost-atomic1.71.0
+    libboost-atomic1.74.0
 
 COPY \
 {% for deb in docker_saiserver_brcm_debs.split(' ') -%}
@@ -26,7 +26,10 @@ debs/
 RUN apt-get install -yf kmod
 
 COPY ["files/dsserve", "files/bcmcmd", "start.sh", "bcmsh", "/usr/bin/"]
+COPY ["saiserver_start.sh", "/usr/bin/"]
+COPY ["files/syncd_init_common.sh", "/usr/bin/"]
 RUN chmod +x /usr/bin/dsserve /usr/bin/bcmcmd
+RUN chmod +x /usr/bin/saiserver_start.sh /usr/bin/syncd_init_common.sh
 
 COPY ["supervisord.conf", "/etc/supervisor/conf.d/"]
 

@@ -18,15 +18,18 @@ Table of Contents
          * [Buffer port ingress profile list](#buffer-port-ingress-profile-list)  
          * [Buffer port egress profile list](#buffer-port-egress-profile-list)  
          * [Cable length](#cable-length)  
+         * [Chassis module](#chassis-module)         
          * [COPP_TABLE](#copp_table)  
          * [CRM](#crm)  
          * [Data Plane L3 Interfaces](#data-plane-l3-interfaces)  
          * [DEFAULT_LOSSLESS_BUFFER_PARAMETER](#DEFAULT_LOSSLESS_BUFFER_PARAMETER)  
          * [Device Metadata](#device-metadata)  
-         * [Device neighbor metada](#device-neighbor-metada)  
+         * [Device neighbor metada](#device-neighbor-metada)
+         * [DHCP_RELAY](#dhcp_relay)
          * [DSCP_TO_TC_MAP](#dscp_to_tc_map)  
-         * [FLEX_COUNTER_TABLE](#flex_counter_table)  
-         * [KDUMP](#kdump)
+         * [FLEX_COUNTER_TABLE](#flex_counter_table) 
+         * [IPv6 Link-local] (#ipv6-link-local)  
+         * [KDUMP](#kdump)  
          * [L2 Neighbors](#l2-neighbors)  
          * [Loopback Interface](#loopback-interface)  
          * [LOSSLESS_TRAFFIC_PATTERN](#LOSSLESS_TRAFFIC_PATTERN)  
@@ -34,8 +37,11 @@ Table of Contents
          * [Management port](#management-port)  
          * [Management VRF](#management-vrf)  
          * [MAP_PFC_PRIORITY_TO_QUEUE](#map_pfc_priority_to_queue)  
+         * [MUX_CABLE](#muxcable)  
+         * [MUX_LINKMGR](#mux_linkmgr)
          * [NTP Global Configuration](#ntp-global-configuration)  
          * [NTP and SYSLOG servers](#ntp-and-syslog-servers)  
+         * [Peer Switch](#peer-switch)
          * [Policer](#policer)   
          * [Port](#port)   
          * [Port Channel](#port-channel)  
@@ -43,6 +49,7 @@ Table of Contents
          * [Scheduler](#scheduler)  
          * [Port QoS Map](#port-qos-map)  
          * [Queue](#queue)  
+         * [Sflow](#sflow)  
          * [Tacplus Server](#tacplus-server)    
          * [TC to Priority group map](#tc-to-priority-group-map)  
          * [TC to Queue map](#tc-to-queue-map)    
@@ -50,13 +57,16 @@ Table of Contents
          * [Versions](#versions)  
          * [VLAN](#vlan)   
          * [VLAN_MEMBER](#vlan_member)  
+         * [VOQ Inband Interface](#voq-inband-interface) 
          * [Virtual router](#virtual-router)  
          * [WRED_PROFILE](#wred_profile)  
          * [PASSWORD_HARDENING](#password_hardening)
+         * [RADIUS](#radius)
+         * [SYSTEM_DEFAULTS table](#systemdefaults-table)
    * [For Developers](#for-developers)  
       * [Generating Application Config by Jinja2 Template](#generating-application-config-by-jinja2-template)
       * [Incremental Configuration by Subscribing to ConfigDB](#incremental-configuration-by-subscribing-to-configdb)
-
+ 
 
 
 # Introduction																																									
@@ -628,6 +638,24 @@ This kind of profiles will be handled by buffer manager and won't be applied to 
 }
 
 ```
+### Chassis Module
+
+CHASSIS_MODULE table holds the list and configuration of linecard and fabric modules in a SONiC chassis.
+It currently allows user to administratively bring down a line-card or fabric-card
+
+```
+{
+    "CHASSIS_MODULE": {
+        "LINE-CARD0": {
+            "admin_status": "down"
+        },
+        "FABRIC-CARD1": {
+            "admin_status": "down"
+        }
+    }
+}
+
+```
 
 ### COPP_TABLE
 
@@ -799,7 +827,8 @@ instance is supported in SONiC.
         "bgp_asn": "65100",
         "deployment_id": "1",
         "type": "ToRRouter",
-        "buffer_model": "traditional"
+        "buffer_model": "traditional",
+        "rack_mgmt_map": "dummy_value"
     }
   }
 }
@@ -829,6 +858,22 @@ instance is supported in SONiC.
 
 ```
 
+### DHCP_RELAY
+
+```
+{
+"DHCP_RELAY": {
+    "dhcpv6_servers": [
+        "fc02:2000::1",
+        "fc02:2000::2",
+        "fc02:2000::3",
+        "fc02:2000::4"
+    ],
+    "rfc6939_support": "true",
+    "interface_id": "true"
+}
+
+```
 
 ### DSCP_TO_TC_MAP
 ```
@@ -875,19 +920,47 @@ instance is supported in SONiC.
 
 ```
 {
-"FLEX_COUNTER_TABLE": {
-    "PFCWD": {
-        "FLEX_COUNTER_STATUS": "enable"
-    },
-    "PORT": {
-        "FLEX_COUNTER_STATUS": "enable"
-    },
-    "QUEUE": {
-        "FLEX_COUNTER_STATUS": "enable"
-    }
-  }
+	"FLEX_COUNTER_TABLE": {
+		"PFCWD": {
+			"FLEX_COUNTER_STATUS": "enable",
+			"POLL_INTERVAL": "10000"
+		},
+		"PORT": {
+			"FLEX_COUNTER_STATUS": "enable",
+			"POLL_INTERVAL": "1000"
+		},
+		"QUEUE": {
+			"FLEX_COUNTER_STATUS": "enable",
+			"POLL_INTERVAL": "10000"
+		},
+		"TUNNEL": {
+			"FLEX_COUNTER_STATUS": "enable",
+			"POLL_INTERVAL": "10000"
+		}
+	}
 }
 
+```
+
+### IPv6 Link-local
+```
+{
+    "INTERFACE": {
+        "Ethernet8": {
+            "ipv6_use_link_local_only": "disable"
+        }
+    },
+    "PORTCHANNEL_INTERFACE": {
+        "PortChannel01": {
+            "ipv6_use_link_local_only": "enable"
+        }
+    },
+    "VLAN_INTERFACE": {
+        "Vlan1000": {
+            "ipv6_use_link_local_only": "enable"
+        }
+    }
+}
 ```
 
 ### KDUMP
@@ -1059,6 +1132,49 @@ instead of data network.
   }
 }
 ```
+### MUX_CABLE
+
+The **MUX_CABLE** table is used for dualtor interface configuration. The `cable_type` and `soc_ipv4` objects are optional. 
+
+```
+{
+    "MUX_CABLE": {
+        "Ethernet4": {
+            "cable_type": "active-active",
+            "server_ipv4": "192.168.0.2/32",
+            "server_ipv6": "fc02:1000::30/128",
+            "soc_ipv4": "192.168.0.3/32",
+            "state": "auto"
+        }
+    }
+}
+```
+
+### MUX_LINKMGR
+The **MUX_LINKMGR** table is used for dualtor device configuration.
+```
+{
+    "MUX_LINKMGR": {
+        "LINK_PROBER": {
+            "interval_v4": "100",
+            "interval_v6": "1000",
+            "positive_signal_count": "1",
+            "negative_signal_count": "3",
+            "suspend_timer": "500",
+            "use_well_known_mac": "enabled",
+            "src_mac": "ToRMac",
+            "interval_pck_loss_count_update": "3"
+        },
+        "MUXLOGGER": {
+            "log_verbosity": "debug"
+        },
+        "SERVICE_MGMT": {
+            "kill_radv": "True"
+        }
+    }
+}
+```
+
 ### NTP Global Configuration
 
 These configuration options are used to modify the way that
@@ -1196,7 +1312,9 @@ optional attributes.
             "mtu": "9100",
             "alias": "fortyGigE1/1/1",
             "speed": "40000",
-            "link_training": "off"
+            "link_training": "off",
+            "laser_freq": "191300",
+            "tx_power": "-27.3"
         },
         "Ethernet1": {
             "index": "1",
@@ -1206,7 +1324,9 @@ optional attributes.
             "alias": "fortyGigE1/1/2",
             "admin_status": "up",
             "speed": "40000",
-            "link_training": "on"
+            "link_training": "on",
+            "laser_freq": "191300",
+            "tx_power": "-27.3"
         },
         "Ethernet63": {
             "index": "63",
@@ -1214,10 +1334,39 @@ optional attributes.
             "description": "fortyGigE1/4/16",
             "mtu": "9100",
             "alias": "fortyGigE1/4/16",
-            "speed": "40000"
+            "speed": "40000",
+            "laser_freq": "191300",
+            "tx_power": "-27.3"
         }
     }
 }
+
+2x100G port breakout
+{
+"PORT": {
+        "Ethernet0": {
+            "admin_status": "up",
+            "index": "1",
+            "lanes": "101,102,103,104",
+            "description": "etp1a",
+            "mtu": "9100",
+            "alias": "etp1a",
+            "speed": "100000",
+            "subport": 1
+        },
+        "Ethernet4": {
+            "admin_status": "up",
+            "index": "1",
+            "lanes": "105,106,107,108",
+            "description": "etp1b",
+            "mtu": "9100",
+            "alias": "etp1b",
+            "speed": "100000",
+            "subport": 2
+        },
+    }
+}
+
 
 ```
 
@@ -1243,7 +1392,8 @@ name as object key and member list as attribute.
         "members": [
             "Ethernet56"
         ],
-        "mtu": "9100"
+        "mtu": "9100",
+        "fallback": "false"
     }
   }
 }
@@ -1324,6 +1474,68 @@ name as object key and member list as attribute.
 }
 ```
 
+### Sflow
+
+The below are the tables and their schema for SFLOW feature
+
+SFLOW
+
+| Field            | Description                                                                             | Mandatory   | Default   | Reference                                 |
+|------------------|-----------------------------------------------------------------------------------------|-------------|-----------|-------------------------------------------|
+| admin_state      | Global sflow admin state                                                                |             | down      |                                           |
+| polling_interval | The interval within which sFlow data is collected and sent to the configured collectors |             | 20        |                                           |
+| agent_id         | Interface name                                                                          |             |           | PORT:name,PORTCHANNEL:name,MGMT_PORT:name, VLAN:name |
+
+SFLOW_SESSION
+
+key - port
+| Field       | Description                                                                                                             | Mandatory   | Default   | Reference   |
+|-------------|-------------------------------------------------------------------------------------------------------------------------|-------------|-----------|-------------|
+| port        | Sets sflow session table attributes for either all interfaces or a specific Ethernet interface.                         |             |           | PORT:name   |
+| admin_state | Per port sflow admin state                                                                                              |             | up        |             |
+| sample_rate | Sets the packet sampling rate.  The rate is expressed as an integer N, where the intended sampling rate is 1/N packets. |             |           |             |
+
+SFLOW_COLLECTOR
+
+key - name
+| Field          | Description                                                                             | Mandatory   | Default   | Reference   |
+|----------------|-----------------------------------------------------------------------------------------|-------------|-----------|-------------|
+| name           | Name of the Sflow collector                                                             |             |           |             |
+| collector_ip   | IPv4/IPv6 address of the Sflow collector                                                | true        |           |             |
+| collector_port | Destination L4 port of the Sflow collector                                              |             | 6343      |             |
+| collector_vrf  | Specify the Collector VRF. In this revision, it is either default VRF or Management VRF.|             |           |             |
+
+### Syslog Rate Limit
+
+Host side configuration:
+
+```
+{
+"SYSLOG_CONFIG": {
+    "GLOBAL": {
+        "rate_limit_interval": "300",
+        "rate_limit_burst": "20000"
+    }
+  }
+}
+```
+
+Container side configuration:
+
+```
+{
+"SYSLOG_CONFIG_FEATURE": {
+    "bgp": {
+        "rate_limit_interval": "300",
+        "rate_limit_burst": "20000"
+    },
+    "pmon": {
+        "rate_limit_interval": "300",
+        "rate_limit_burst": "20000"
+    }
+  }
+}
+```
 
 ### Tacplus Server
 
@@ -1461,6 +1673,20 @@ channel name as object key, and tagging mode as attributes.
 		"tagging_mode": "tagged"
 	}
   }
+}
+```
+
+### VOQ INBAND INTERFACE
+
+VOQ_INBAND_INTERFACE holds the name of the inband system port dedicated for cpu communication. At this time, only inband_type of "port" is supported
+
+```
+"VOQ_INBAND_INTERFACE": {
+    "Ethernet-IB0": {
+	   "inband_type": "port"
+	},
+	"Ethernet-IB0|3.3.3.1/32": {},
+    "Ethernet-IB0|3333::3:5/128": {}
 }
 ```
 
@@ -1621,6 +1847,54 @@ The method could be:
     }
 }
 ```
+
+### RADIUS
+
+The RADIUS and RADIUS_SERVER tables define RADIUS config paramerters. RADIUS table carries global configuration while RADIUS_SERVER table carries per server configuration.
+
+```
+"RADIUS": {
+    "global": {
+       "auth_type": "pap",
+       "timeout": "5"
+    }
+}
+
+"RADIUS_SERVER": {
+    "192.168.1.2": {
+       "priority": "4",
+       "retransmit": "2",
+       "timeout": "5"
+    }
+}
+
+```
+
+### SYSTEM_DEFAULTS table
+To have a better management of the features in SONiC, a new table `SYSTEM_DEFAULTS` is introduced.
+
+```
+"SYSTEM_DEFAULTS": {
+        "tunnel_qos_remap": {
+            "status": "enabled"
+        }
+        "default_bgp_status": {
+            "status": "down"
+        }
+        "synchronous_mode": {
+            "status": "enable"
+        }
+        "dhcp_server": {
+            "status": "enable"
+        }
+    }
+```
+The default value of flags in `SYSTEM_DEFAULTS` table can be set in `init_cfg.json` and loaded into db at system startup. These flags are usually set at image being build, and are unlikely to change at runtime.
+
+If the values in `config_db.json` is changed by user, it will not be rewritten back by `init_cfg.json` as `config_db.json` is loaded after `init_cfg.json` in [docker_image_ctl.j2](https://github.com/Azure/sonic-buildimage/blob/master/files/build_templates/docker_image_ctl.j2)
+
+For the flags that can be changed by reconfiguration, we can update entries in `minigraph.xml`, and parse the new values in to config_db with minigraph parser at reloading minigraph. If there are duplicated entries in `init_cfg.json` and `minigraph.xml`, the values in `minigraph.xml` will overwritten the values defined in `init_cfg.json`.
+#### 5.2.3 Update value directly in db memory
 
 For Developers
 ==============

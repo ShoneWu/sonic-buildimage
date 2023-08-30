@@ -125,6 +125,11 @@ start_test_data = {
                         "current_owner": "none",
                         "container_id": ""
                     }
+                },
+                common_test.SERVER_TABLE: {
+                    "SERVER": {
+                        "connected": "true"
+                    }
                 }
             }
         },
@@ -238,11 +243,6 @@ stop_test_data = {
                         "current_owner": "none",
                         "container_id": "",
                         "container_version": "20201230.1.15"
-                    }
-                },
-                common_test.KUBE_LABEL_TABLE: {
-                    "SET": {
-                        "snmp_enabled": "false"
                     }
                 }
             }
@@ -411,7 +411,8 @@ wait_test_data = {
                         "remote_state": "none",
                         "system_state": "up",
                         "current_owner": "local",
-                        "container_id": "snmp"
+                        "container_id": "snmp",
+                        "container_stable_version": "20201231.11"
                     }
                 }
             }
@@ -462,7 +463,7 @@ wait_test_data = {
 class TestContainer(object):
 
     def init(self):
-        container.CTR_STATE_SCR_PATH = __file__
+        container.CTRMGRD_SERVICE_PATH = __file__
         container.SONIC_CTR_CONFIG = (
                 common_test.create_remote_ctr_config_json())
 

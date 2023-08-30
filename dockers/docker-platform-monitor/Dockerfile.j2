@@ -1,4 +1,4 @@
-{% from "dockers/dockerfile-macros.j2" import install_debian_packages, install_python_wheels, copy_files %}
+{% from "dockers/dockerfile-macros.j2" import install_debian_packages, install_python_wheels, copy_files, cleanup_apt_and_python_cache %}
 FROM docker-config-engine-bullseye-{{DOCKER_USERNAME}}:{{DOCKER_USERTAG}}
 
 ARG docker_container_name
@@ -26,7 +26,10 @@ RUN apt-get update &&   \
         psmisc          \
         python3-jsonschema \
         libpci3         \
-        iputils-ping
+        iputils-ping    \
+        pciutils        \
+# smartmontools version should match the installed smartmontools in sonic_debian_extension build template
+        smartmontools=7.2-1
 
 # On Arista devices, the sonic_platform wheel is not installed in the container.
 # Instead, the installation directory is mounted from the host OS. However, this method
@@ -38,6 +41,9 @@ RUN pip3 install grpcio==1.39.0 \
 
 # Barefoot platform vendors' sonic_platform packages import the Python 'thrift' library
 RUN pip3 install thrift==0.13.0
+
+# We install the libpci module in order to be able to do PCI transactions
+RUN pip3 install libpci
 
 {% if docker_platform_monitor_debs.strip() -%}
 # Copy locally-built Debian package dependencies
@@ -67,13 +73,9 @@ RUN pip3 install thrift==0.13.0
 # Clean up
 RUN apt-get purge -y           \
         build-essential        \
-        python3-dev         && \
-    apt-get clean -y        && \
-    apt-get autoclean -y    && \
-    apt-get autoremove -y   && \
-    rm -rf /debs               \
-           /python-wheels      \
-           ~/.cache
+        python3-dev
+
+{{ cleanup_apt_and_python_cache() }}
 
 COPY ["lm-sensors.sh", "/usr/bin/"]
 COPY ["docker-pmon.supervisord.conf.j2", "docker_init.j2", "/usr/share/sonic/templates/"]

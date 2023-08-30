@@ -12,26 +12,27 @@ resources:
     endpoint: sonic-net
 
 schedules:
-- cron: "0 8 * * *"
+- cron: "0 0 * * 0"
+  displayName: Weekly build
   branches:
     include:
     - master
-    - 202012
+    - 202???
   always: true
 
-trigger: none
-pr:
+pr: none
+trigger:
+  batch: true
   branches:
     include:
     - master
+    - 202???
   paths:
     include:
-    - sonic-slave-jessie
-    - sonic-slave-stretch
-    - sonic-slave-buster
-    - sonic-slave-bullseye
-    - src/sonic-build-hooks
-    - .azure-pipelines
+    - sonic-slave-*
+    - files/build/versions
+    - Makefile
+    - Makefile.work
 
 parameters:
 - name: 'arches'
@@ -55,20 +56,28 @@ parameters:
   default: sonicdev
 
 stages:
-- stage: Build
+- stage: Build_in_amd64
   jobs:
   - ${{ each dist in parameters.dists }}:
     - ${{ if endswith(variables['Build.DefinitionName'], dist) }}:
       - ${{ each arch in parameters.arches }}:
-        - ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-          - template: docker-sonic-slave-template.yml
+        - template: .azure-pipelines/docker-sonic-slave-template.yml@buildimage
+          parameters:
+            pool: sonicbld
+            arch: ${{ arch }}
+            dist: ${{ dist }}
+            ${{ if ne(arch, 'amd64') }}:
+              march: _march_${{ arch }}
+- stage: Build_native_arm
+  dependsOn: []
+  jobs:
+  - ${{ each dist in parameters.dists }}:
+    - ${{ if endswith(variables['Build.DefinitionName'], dist) }}:
+      - ${{ each arch in parameters.arches }}:
+        - ${{ if ne(arch, 'amd64') }}:
+          - template: .azure-pipelines/docker-sonic-slave-template.yml@buildimage
             parameters:
-              pool: sonicbld
+              pool: sonicbld-${{ arch }}
               arch: ${{ arch }}
               dist: ${{ dist }}
-        - ${{ else }}:
-          - template: '/.azure-pipelines/docker-sonic-slave-template.yml@buildimage'
-            parameters:
-              pool: sonicbld
-              arch: ${{ arch }}
-              dist: ${{ dist }}
+              march: _${{ arch }}

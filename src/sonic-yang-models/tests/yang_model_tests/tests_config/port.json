@@ -311,6 +311,74 @@
         }
     },
 
+    "PORT_VALID_XCVR_FREQ_TEST": {
+        "sonic-port:sonic-port": {
+            "sonic-port:PORT": {
+                "PORT_LIST": [
+                    {
+                        "name": "Ethernet8",
+                        "alias": "eth8",
+                        "lanes": "65",
+                        "speed": 25000,
+                        "tpid": "0x8100",
+                        "laser_freq": 193100
+                    }
+                ]
+            }
+        }
+    },
+
+    "PORT_VALID_XCVR_TX_POWER_TEST": {
+        "sonic-port:sonic-port": {
+            "sonic-port:PORT": {
+                "PORT_LIST": [
+                    {
+                        "name": "Ethernet8",
+                        "alias": "eth8",
+                        "lanes": "65",
+                        "speed": 25000,
+                        "tpid": "0x8100",
+                        "tx_power": "27.3"
+                    }
+                ]
+            }
+        }
+    },
+
+    "PORT_INVALID_XCVR_FREQ_TEST": {
+        "sonic-port:sonic-port": {
+            "sonic-port:PORT": {
+                "PORT_LIST": [
+                    {
+                        "name": "Ethernet8",
+                        "alias": "eth8",
+                        "lanes": "65",
+                        "speed": 25000,
+                        "tpid": "0x8100",
+                        "laser_freq": "27.3"
+                    }
+                ]
+            }
+        }
+    },
+
+    "PORT_INVALID_XCVR_TX_POWER_TEST": {
+        "sonic-port:sonic-port": {
+            "sonic-port:PORT": {
+                "PORT_LIST": [
+                    {
+                        "name": "Ethernet8",
+                        "alias": "eth8",
+                        "lanes": "65",
+                        "speed": 25000,
+                        "tpid": "0x8100",
+                        "tx_power": "27/4"
+                    }
+                ]
+            }
+        }
+    },
+
     "PORT_VALID_LINK_TRAINING_TEST_1": {
         "sonic-port:sonic-port": {
             "sonic-port:PORT": {
@@ -417,7 +485,60 @@
             }
         }
     },
-    
+
+    "PORT_INVALID_SUBPORT_NUMBER": {
+         "sonic-port:sonic-port": {
+             "sonic-port:PORT": {
+                 "PORT_LIST": [
+                     {
+                         "name": "Ethernet0",
+                         "alias": "etp1a",
+                         "lanes": "60, 61",
+                         "speed": 100000,
+                         "subport": 9
+                     }
+                 ]
+             }
+         }
+     },
+
+     "PORT_VALID_SUBPORT_NUMBER": {
+        "sonic-port:sonic-port": {
+            "sonic-port:PORT": {
+                "PORT_LIST": [
+                    {
+                        "name": "Ethernet0",
+                        "alias": "etp1a",
+                        "lanes": "60, 61",
+                        "speed": 100000,
+                        "subport": 1
+                    },
+                    {
+                       "name": "Ethernet2",
+                        "alias": "etp1b",
+                        "lanes": "62, 63",
+                        "speed": 100000,
+                        "subport": 2
+                    },
+                    {
+                        "name": "Ethernet4",
+                        "alias": "etp1c",
+                        "lanes": "64, 65",
+                        "speed": 100000,
+                        "subport": 3
+                    },
+                    {
+                        "name": "Ethernet6",
+                        "alias": "etp1d",
+                        "lanes": "66, 67",
+                        "speed": 100000,
+                        "subport": 4
+                    }
+                ]
+            }
+        }
+    },
+
     "PORT_VALID_MULTIASIC_TEST": {
         "sonic-port:sonic-port": {
             "sonic-port:PORT": {

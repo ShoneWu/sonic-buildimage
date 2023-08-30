@@ -11,7 +11,7 @@ import datetime
 import docker
 from swsscommon import swsscommon
 
-CTR_STATE_SCR_PATH = '/usr/share/sonic/scripts/container_startup.py'
+CTRMGRD_SERVICE_PATH = '/lib/systemd/system/ctrmgrd.service'
 
 state_db = None
 
@@ -27,9 +27,14 @@ REMOTE_STATE = "remote_state"
 VERSION = "container_version"
 SYSTEM_STATE = "system_state"
 STATE = "state"
+ST_FEAT_CTR_STABLE_VER = "container_stable_version"
 
 KUBE_LABEL_TABLE = "KUBE_LABELS"
 KUBE_LABEL_SET_KEY = "SET"
+SERVER_TABLE = "KUBERNETES_MASTER"
+SERVER_KEY = "SERVER"
+ST_SER_CONNECTED = "connected"
+ST_SER_UPDATE_TS = "update_time"
 
 # Get seconds to wait for remote docker to start.
 # If not, revert to local
@@ -57,7 +62,7 @@ def init():
     cfg_db = swsscommon.DBConnector("CONFIG_DB", 0)
     state_db = swsscommon.DBConnector("STATE_DB", 0)
 
-    remote_ctr_enabled = os.path.exists(CTR_STATE_SCR_PATH)
+    remote_ctr_enabled = os.path.exists(CTRMGRD_SERVICE_PATH)
 
 
 def get_config_data(fld, dflt):
@@ -75,8 +80,10 @@ def read_data(is_config, feature, fields):
     ret = []
 
     db = cfg_db if is_config else state_db
-
-    tbl = swsscommon.Table(db, FEATURE_TABLE)
+    if feature == SERVER_KEY:
+        tbl = swsscommon.Table(db, SERVER_TABLE)
+    else:
+        tbl = swsscommon.Table(db, FEATURE_TABLE)
 
     data = dict(tbl.get(feature)[1])
     for (field, default) in fields:
@@ -104,6 +111,13 @@ def read_state(feature):
             [(CURRENT_OWNER, "none"), (REMOTE_STATE, "none"), (CONTAINER_ID, "")])
 
 
+def read_server_state():
+    """ Read requried feature state """
+
+    return read_data(False, SERVER_KEY,
+            [(ST_SER_CONNECTED, "false"), (ST_SER_UPDATE_TS, "")])
+
+
 def docker_action(action, feature, **kwargs):
     """ Execute docker action """
     try:
@@ -117,6 +131,26 @@ def docker_action(action, feature, **kwargs):
         syslog.syslog(syslog.LOG_ERR, "docker cmd: {} for {} failed with {}".
                 format(action, feature, str(err)))
         return FAILURE
+
+
+def container_version(feature):
+    """ Get container image version """
+    version = None
+    try:
+        client = docker.from_env()
+        container = client.containers.get(feature)
+        envs = container.attrs['Config']['Env']
+        for env in envs:
+            if env.startswith("IMAGE_VERSION="):
+                version = env.split('=')[1]
+        
+        syslog.syslog(syslog.LOG_INFO, "docker get image version for {}".format(feature))
+        
+    except (docker.errors.NotFound, docker.errors.APIError) as err:
+        syslog.syslog(syslog.LOG_ERR, "docker get image version for {} failed with {}".
+                format(feature, str(err)))
+    
+    return version
 
 
 def set_label(feature, create):
@@ -192,9 +226,10 @@ def container_start(feature, **kwargs):
 
     set_owner, fallback, _ = read_config(feature)
     _, remote_state, _ = read_state(feature)
+    server_connected, _ = read_server_state()
 
-    debug_msg("{}: set_owner:{} fallback:{} remote_state:{}".format(
-        feature, set_owner, fallback, remote_state))
+    debug_msg("{}: set_owner:{} fallback:{} remote_state:{} server_connected:{}".format(
+        feature, set_owner, fallback, remote_state, server_connected))
 
     data = {
             SYSTEM_STATE: "up",
@@ -207,8 +242,9 @@ def container_start(feature, **kwargs):
         start_val = START_LOCAL
     else:
         start_val = START_KUBE
-        if fallback and (remote_state == "none"):
+        if fallback and (remote_state == "none" or server_connected == "false"):
             start_val |= START_LOCAL
+            data[REMOTE_STATE] = "none"
 
     if start_val == START_LOCAL:
         # Implies *only* local.
@@ -252,7 +288,7 @@ def container_stop(feature, **kwargs):
     set_owner, _ , _ = read_config(feature)
     current_owner, remote_state, _ = read_state(feature)
     docker_id = container_id(feature)
-    remove_label = (remote_state != "pending") or (set_owner == "local")
+    remove_label = (set_owner == "local")
 
     debug_msg("{}: set_owner:{} current_owner:{} remote_state:{} docker_id:{}".format(
         feature, set_owner, current_owner, remote_state, docker_id))
@@ -358,6 +394,11 @@ def container_wait(feature, **kwargs):
     docker_id = container_id(feature)
     pend_wait_secs = 0
     ret = SUCCESS
+
+    if docker_id == feature:
+        version = container_version(feature)
+        if version:
+            update_data(feature, {ST_FEAT_CTR_STABLE_VER: version})
 
     if not docker_id and fallback:
         pend_wait_secs = get_config_data(

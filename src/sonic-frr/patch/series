@@ -7,3 +7,10 @@
 0007-Add-support-of-bgp-l3vni-evpn.patch
 0008-Link-local-scope-was-not-set-while-binding-socket-for-bgp-ipv6-link-local-neighbors.patch
 Disable-ipv6-src-address-test-in-pceplib.patch
+0009-ignore-route-from-default-table.patch
+0010-zebra-Note-when-the-netlink-DUMP-command-is-interrup.patch
+0011-bgpd-enhanced-capability-is-always-turned-on-for-int.patch
+0012-Ensure-ospf_apiclient_lsa_originate-cannot-accidently-write-into-stack.patch
+0027-bgpd-Ensure-FRR-has-enough-data-to-read-in-peek_for_as4_capability-and-bgp_open_option_parse.patch
+0028-bgpd-Ensure-that-bgp-open-message-stream-has-enough-data-to-read.patch
+0029-bgpd-Change-log-level-for-graceful-restart-events.patch

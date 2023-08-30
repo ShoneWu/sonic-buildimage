@@ -40,6 +40,10 @@ CHASSIS_INFO_SERIAL_FIELD = 'serial'
 CHASSIS_INFO_MODEL_FIELD = 'model'
 CHASSIS_INFO_REV_FIELD = 'revision'
 
+# Cacheable Objects
+sonic_ver_info = {}
+hw_info_dict = {}
+
 def get_localhost_info(field, config_db=None):
     try:
         # TODO: enforce caller to provide config_db explicitly and remove its default value
@@ -334,14 +338,17 @@ def get_sonic_version_info():
     if not os.path.isfile(SONIC_VERSION_YAML_PATH):
         return None
 
-    data = {}
+    global sonic_ver_info
+    if sonic_ver_info:
+        return sonic_ver_info
+
     with open(SONIC_VERSION_YAML_PATH) as stream:
         if yaml.__version__ >= "5.1":
-            data = yaml.full_load(stream)
+            sonic_ver_info = yaml.full_load(stream)
         else:
-            data = yaml.load(stream)
+            sonic_ver_info = yaml.load(stream)
 
-    return data
+    return sonic_ver_info
 
 def get_sonic_version_file():
     if not os.path.isfile(SONIC_VERSION_YAML_PATH):
@@ -355,9 +362,12 @@ def get_platform_info(config_db=None):
     """
     This function is used to get the HW info helper function
     """
-    from .multi_asic import get_num_asics
+    global hw_info_dict
 
-    hw_info_dict = {}
+    if hw_info_dict:
+        return hw_info_dict
+
+    from .multi_asic import get_num_asics
 
     version_info = get_sonic_version_info()
 
@@ -404,6 +414,10 @@ def get_chassis_info():
 
     return chassis_info_dict
 
+
+def is_yang_config_validation_enabled(config_db):
+    return get_localhost_info('yang_config_validation', config_db) == 'enable'
+
 #
 # Multi-NPU functionality
 #
@@ -429,7 +443,7 @@ def is_multi_npu():
 
 def is_voq_chassis():
     switch_type = get_platform_info().get('switch_type')
-    return True if switch_type and switch_type == 'voq' else False
+    return True if switch_type and (switch_type == 'voq' or switch_type == 'fabric') else False
 
 
 def is_packet_chassis():
@@ -456,6 +470,40 @@ def is_supervisor():
                     return True
         return False
 
+# Check if this platform has macsec capability.
+def is_macsec_supported():
+    supported = 0
+    platform_env_conf_file_path = get_platform_env_conf_file_path()
+
+    # platform_env.conf file not present for platform
+    if platform_env_conf_file_path is None:
+        return supported
+
+    # Else open the file check for keyword - macsec_enabled -
+    with open(platform_env_conf_file_path) as platform_env_conf_file:
+        for line in platform_env_conf_file:
+            tokens = line.split('=')
+            if len(tokens) < 2:
+               continue
+            if tokens[0].lower() == 'macsec_enabled':
+                supported = tokens[1].strip()
+                break
+    return int(supported)
+
+
+def get_device_runtime_metadata():
+    chassis_metadata = {}
+    if is_chassis():
+        chassis_metadata = {'CHASSIS_METADATA': {'module_type' : 'supervisor' if is_supervisor() else 'linecard', 
+                                                'chassis_type': 'voq' if is_voq_chassis() else 'packet'}}
+
+    port_metadata = {'ETHERNET_PORTS_PRESENT': True if get_path_to_port_config_file(hwsku=None, asic="0" if is_multi_npu() else None) else False}
+    macsec_support_metadata = {'MACSEC_SUPPORTED': True if is_macsec_supported() else False}
+    runtime_metadata = {}
+    runtime_metadata.update(chassis_metadata)
+    runtime_metadata.update(port_metadata)
+    runtime_metadata.update(macsec_support_metadata)
+    return {'DEVICE_RUNTIME_METADATA': runtime_metadata }
 
 def get_npu_id_from_name(npu_name):
     if npu_name.startswith(NPU_NAME_PREFIX):
@@ -566,9 +614,10 @@ def get_system_mac(namespace=None):
 
     # Align last byte of MAC if necessary
     if version_info and version_info['asic_type'] == 'centec':
-        last_byte = mac[-2:]
-        aligned_last_byte = format(int(int(last_byte, 16) + 1), '02x')
-        mac = mac[:-2] + aligned_last_byte
+        mac_tmp = mac.replace(':','')
+        mac_tmp = "{:012x}".format(int(mac_tmp, 16) + 1)
+        mac_tmp = re.sub("(.{2})", "\\1:", mac_tmp, 0, re.DOTALL)
+        mac = mac_tmp[:-1]
     return mac
 
 
@@ -620,14 +669,26 @@ def is_warm_restart_enabled(container_name):
 
 # Check if System fast reboot is enabled.
 def is_fast_reboot_enabled():
-    fb_system_state = 0
-    cmd = 'sonic-db-cli STATE_DB get "FAST_REBOOT|system"'
-    proc = subprocess.Popen(cmd, shell=True, universal_newlines=True, stdout=subprocess.PIPE)
-    (stdout, stderr) = proc.communicate()
+    state_db = SonicV2Connector(host='127.0.0.1')
+    state_db.connect(state_db.STATE_DB, False)
+    
+    TABLE_NAME_SEPARATOR = '|'
+    prefix = 'FAST_RESTART_ENABLE_TABLE' + TABLE_NAME_SEPARATOR
+    
+    # Get the system warm reboot enable state
+    _hash = '{}{}'.format(prefix, 'system')
+    fb_system_state = state_db.get(state_db.STATE_DB, _hash, "enable")
+    fb_enable_state = True if fb_system_state == "true" else False
 
-    if proc.returncode != 0:
-        log.log_error("Error running command '{}'".format(cmd))
-    elif stdout:
-        fb_system_state = stdout.rstrip('\n')
+    state_db.close(state_db.STATE_DB)
+    return fb_enable_state
 
-    return fb_system_state
+
+def is_frontend_port_present_in_host():
+    if is_supervisor():
+        return False
+    if is_multi_npu():
+        namespace_id = os.getenv("NAMESPACE_ID")
+        if not namespace_id:
+            return False
+    return True

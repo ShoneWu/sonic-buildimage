@@ -10,6 +10,7 @@
 #  * ENABLE_ZTP: Enables zero touch provisioning.
 #  * SHUTDOWN_BGP_ON_START: Sets admin-down state for all bgp peerings after restart.
 #  * INCLUDE_KUBERNETES: Allows including Kubernetes
+#  * INCLUDE_KUBERNETES_MASTER: Allows including Kubernetes master
 #  * INCLUDE_MUX: Include MUX feature/services for TOR switch.
 #  * ENABLE_PFCWD_ON_START: Enable PFC Watchdog (PFCWD) on server-facing ports
 #  * by default for TOR switch.
@@ -43,6 +44,16 @@
 #  * ENABLE_AUTO_TECH_SUPPORT: Enable the configuration for event-driven techsupport & coredump mgmt feature
 #  *                 Default: y
 #  *                 Values: y,n
+#  * INCLUDE_BOOTCHART: Install SONiC bootchart
+#  *                 Default: y
+#  *                 Values: y,n
+#  * ENABLE_BOOTCHART: Enable SONiC bootchart
+#  *                 Default: n
+#  *                 Values: y,n
+#  * UNATTENDED: Don't wait for interactive input from terminal, setting this
+#  *             value to anything will enable it
+#  *             Default: unset
+#  *             Value: y
 #
 ###############################################################################
 
@@ -152,14 +163,17 @@ endif
 endif
 
 # Generate the version control build info
-$(shell SONIC_VERSION_CONTROL_COMPONENTS=$(SONIC_VERSION_CONTROL_COMPONENTS) \
-    TRUSTED_GPG_URLS=$(TRUSTED_GPG_URLS) PACKAGE_URL_PREFIX=$(PACKAGE_URL_PREFIX) \
-    scripts/generate_buildinfo_config.sh)
+$(shell \
+	SONIC_VERSION_CONTROL_COMPONENTS=$(SONIC_VERSION_CONTROL_COMPONENTS) \
+	TRUSTED_GPG_URLS=$(TRUSTED_GPG_URLS) \
+	PACKAGE_URL_PREFIX=$(PACKAGE_URL_PREFIX) \
+	MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) \
+	scripts/generate_buildinfo_config.sh)
 
 # Generate the slave Dockerfile, and prepare build info for it
 $(shell CONFIGURED_ARCH=$(CONFIGURED_ARCH) MULTIARCH_QEMU_ENVIRON=$(MULTIARCH_QEMU_ENVIRON) ENABLE_FIPS_FEATURE=$(ENABLE_FIPS_FEATURE) DOCKER_EXTRA_OPTS=$(DOCKER_EXTRA_OPTS) DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) j2 $(SLAVE_DIR)/Dockerfile.j2 > $(SLAVE_DIR)/Dockerfile)
 $(shell CONFIGURED_ARCH=$(CONFIGURED_ARCH) MULTIARCH_QEMU_ENVIRON=$(MULTIARCH_QEMU_ENVIRON) j2 $(SLAVE_DIR)/Dockerfile.user.j2 > $(SLAVE_DIR)/Dockerfile.user)
-$(shell BUILD_SLAVE=y DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) scripts/prepare_docker_buildinfo.sh $(SLAVE_BASE_IMAGE) $(SLAVE_DIR)/Dockerfile $(CONFIGURED_ARCH) "" $(BLDENV))
+$(shell BUILD_SLAVE=y DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) scripts/prepare_docker_buildinfo.sh $(SLAVE_BASE_IMAGE) $(SLAVE_DIR)/Dockerfile $(CONFIGURED_ARCH) "" $(BLDENV))
 
 # Add the versions in the tag, if the version change, need to rebuild the slave
 SLAVE_BASE_TAG = $(shell cat $(SLAVE_DIR)/Dockerfile $(SLAVE_DIR)/buildinfo/versions/versions-* src/sonic-build-hooks/hooks/* | sha1sum | awk '{print substr($$1,0,11);}')
@@ -182,7 +196,7 @@ endif
 DOCKER_LOCKFILE_SAVE := $(DOCKER_LOCKDIR)/docker_save.lock
 $(shell mkdir -m 0777 -p $(DOCKER_LOCKDIR))
 $(shell [ -f $(DOCKER_LOCKFILE_SAVE) ] || (touch $(DOCKER_LOCKFILE_SAVE) && chmod 0777 $(DOCKER_LOCKFILE_SAVE)))
-$(docker run --rm -v $(DOCKER_ROOT)\:/mount alpine sh -c 'rm -rf /mount/')
+$(shell [ -d $(DOCKER_ROOT) ] && docker run --rm -v $(DOCKER_ROOT)\:/mount debian sh -c 'rm -rf /mount/*')
 $(mkdir -p $(DOCKER_ROOT))
 
 ifeq ($(DOCKER_BUILDER_MOUNT),)
@@ -316,7 +330,7 @@ DOCKER_BASE_BUILD = docker build --no-cache \
 		    $(SLAVE_DIR) $(SPLIT_LOG) $(DOCKER_BASE_LOG)
 
 DOCKER_BASE_PULL = docker pull \
-			$(REGISTRY_SERVER):$(REGISTRY_PORT)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG)
+			$(REGISTRY_SERVER):$(REGISTRY_PORT)$(REGISTRY_SERVER_PATH)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG)
 
 DOCKER_BUILD = docker build --no-cache \
 	       --build-arg user=$(USER) \
@@ -345,6 +359,7 @@ SONIC_BUILD_INSTRUCTION :=  make \
                            KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
                            KUBERNETES_CNI_VERSION=$(KUBERNETES_CNI_VERSION) \
                            K8s_GCR_IO_PAUSE_VERSION=$(K8s_GCR_IO_PAUSE_VERSION) \
+                           INCLUDE_KUBERNETES_MASTER=$(INCLUDE_KUBERNETES_MASTER) \
                            SONIC_ENABLE_PFCWD_ON_START=$(ENABLE_PFCWD_ON_START) \
                            SONIC_ENABLE_SYNCD_RPC=$(ENABLE_SYNCD_RPC) \
                            SONIC_INSTALL_DEBUG_TOOLS=$(INSTALL_DEBUG_TOOLS) \
@@ -385,15 +400,24 @@ SONIC_BUILD_INSTRUCTION :=  make \
                            ENABLE_FIPS_FEATURE=$(ENABLE_FIPS_FEATURE) \
                            ENABLE_FIPS=$(ENABLE_FIPS) \
                            SONIC_SLAVE_DOCKER_DRIVER=$(SONIC_SLAVE_DOCKER_DRIVER) \
+                           MIRROR_URLS=$(MIRROR_URLS) \
+                           MIRROR_SECURITY_URLS=$(MIRROR_SECURITY_URLS) \
+                           MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) \
+                           SONIC_OS_VERSION=$(SONIC_OS_VERSION) \
                            $(SONIC_OVERRIDE_BUILD_VARS)
 
 .PHONY: sonic-slave-build sonic-slave-bash init reset
 
 .DEFAULT_GOAL :=  all
 
+export MIRROR_URLS
+export MIRROR_SECURITY_URLS
+export SONIC_VERSION_CONTROL_COMPONENTS
+
 %::
 ifeq ($(MULTIARCH_QEMU_ENVIRON), y)
 	@$(DOCKER_MULTIARCH_CHECK)
+
 ifneq ($(BLDENV), )
 	@$(DOCKER_SERVICE_MULTIARCH_CHECK)
 	@$(DOCKER_SERVICE_DOCKERFS_CHECK)
@@ -403,10 +427,11 @@ endif
 
 	@pushd src/sonic-build-hooks; TRUSTED_GPG_URLS=$(TRUSTED_GPG_URLS) make all; popd
 	@cp src/sonic-build-hooks/buildinfo/sonic-build-hooks* $(SLAVE_DIR)/buildinfo
+	@scripts/build_mirror_config.sh $(SLAVE_DIR) $(CONFIGURED_ARCH) $(BLDENV)
 	@docker inspect --type image $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) &> /dev/null || \
 	    { [ $(ENABLE_DOCKER_BASE_PULL) == y ] && { echo Image $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) not found. Pulling...; } && \
 	      $(DOCKER_BASE_PULL) && \
-		    { docker tag $(REGISTRY_SERVER):$(REGISTRY_PORT)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) && \
+		    { docker tag $(REGISTRY_SERVER):$(REGISTRY_PORT)$(REGISTRY_SERVER_PATH)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) && \
 	          scripts/collect_docker_version_files.sh $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) target ; } } || \
 	    { echo Image $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) not found. Building... ; \
 	      $(DOCKER_BASE_BUILD) ; \
@@ -430,6 +455,7 @@ docker-cleanup:
 sonic-build-hooks:
 	@pushd src/sonic-build-hooks; TRUSTED_GPG_URLS=$(TRUSTED_GPG_URLS) make all; popd
 	@cp src/sonic-build-hooks/buildinfo/sonic-build-hooks* $(SLAVE_DIR)/buildinfo
+	@scripts/build_mirror_config.sh $(SLAVE_DIR) $(CONFIGURED_ARCH) $(BLDENV)
 
 sonic-slave-base-build : sonic-build-hooks
 ifeq ($(MULTIARCH_QEMU_ENVIRON), y)
@@ -440,7 +466,7 @@ endif
 	@docker inspect --type image $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) &> /dev/null || \
 	    { [ $(ENABLE_DOCKER_BASE_PULL) == y ] && { echo Image $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) not found. Pulling...; } && \
 	      $(DOCKER_BASE_PULL) && \
-		    { docker tag $(REGISTRY_SERVER):$(REGISTRY_PORT)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) && \
+		    { docker tag $(REGISTRY_SERVER):$(REGISTRY_PORT)$(REGISTRY_SERVER_PATH)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) && \
 	          scripts/collect_docker_version_files.sh $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) target ; } } || \
 	    { echo Image $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) not found. Building... ; \
 	      $(DOCKER_BASE_BUILD) ; \
@@ -468,23 +494,28 @@ init :
 
 .ONESHELL : reset
 reset :
-	@echo && echo -n "Warning! All local changes will be lost. Proceed? [y/N]: "
-	@read ans && (
-	    if [ $$ans == y ]; then
-	        echo "Resetting local repository. Please wait...";
-	        sudo rm -rf fsroot*;
-	        if [ "$(MULTIARCH_QEMU_ENVIRON)" == y ] && [[ "$(CONFIGURED_ARCH)" == "armhf" || "$(CONFIGURED_ARCH)" ==  "arm64" ]]; then
-	            echo "Stopping march $(CONFIGURED_ARCH) docker"
-	            sudo kill -9 `sudo cat /var/run/march/docker.pid` || true
-	            sudo rm -f /var/run/march/docker.pid || true
-	        fi
-	        git clean -xfdf;
-	        git reset --hard;
-	        git submodule foreach --recursive 'git clean -xfdf || true';
-	        git submodule foreach --recursive 'git reset --hard || true';
-	        git submodule foreach --recursive 'git remote update || true';
-	        git submodule update --init --recursive;
-	        echo "Reset complete!";
-	    else
-	        echo "Reset aborted";
-	    fi )
+	@echo && (
+	if [ -z "$(UNATTENDED)" ]; then
+	    echo -n "Warning! All local changes will be lost. Proceed? [y/N]: "
+	    @read ans
+	else
+	    ans=y
+	fi
+	if [ $$ans == y ]; then
+	    echo "Resetting local repository. Please wait...";
+	    sudo rm -rf fsroot*;
+	    if [ "$(MULTIARCH_QEMU_ENVIRON)" == y ] && [[ "$(CONFIGURED_ARCH)" == "armhf" || "$(CONFIGURED_ARCH)" ==  "arm64" ]]; then
+	        echo "Stopping march $(CONFIGURED_ARCH) docker"
+	        sudo kill -9 `sudo cat /var/run/march/docker.pid` || true
+	        sudo rm -f /var/run/march/docker.pid || true
+	    fi
+	    git clean -xfdf;
+	    git reset --hard;
+	    git submodule foreach --recursive 'git clean -xfdf || true';
+	    git submodule foreach --recursive 'git reset --hard || true';
+	    git submodule foreach --recursive 'git remote update || true';
+	    git submodule update --init --recursive;
+	    echo "Reset complete!";
+	else
+	    echo "Reset aborted";
+	fi )

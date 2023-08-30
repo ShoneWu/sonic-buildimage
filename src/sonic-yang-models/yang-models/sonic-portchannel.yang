@@ -58,23 +58,6 @@ module sonic-portchannel {
                     }
                 }
 
-                leaf-list members {
-                    /* leaf-list members are unique by default */
-                    type union {
-                        type leafref {
-                            path /port:sonic-port/port:PORT/port:PORT_LIST/port:name;
-                        }
-                        type string {
-                            pattern "";
-                        }
-                    }
-                    /* Today in SONiC, we do not delete the list once
-                     * created, instead we set to empty list. Due to that
-                     * below default values are needed.
-                     */
-                    default "";
-                }
-
                 leaf min_links {
                     type uint16 {
                         range 1..1024;
@@ -117,6 +100,11 @@ module sonic-portchannel {
                                 to the specified portchannel if the HW supports TPID configuration. The possible
                                 values are 0x8100, 0x9100, 0x9200, 0x88a8, and 0x88A8";
                     type stypes:tpid_type;
+                }
+
+                leaf fallback {
+                    description "Enable LACP fallback feature";
+                    type stypes:boolean_type;
                 }
 
             } /* end of list PORTCHANNEL_LIST */
@@ -188,6 +176,12 @@ module sonic-portchannel {
 				enum enable;
 				enum disable;
 			}
+		}
+
+		leaf ipv6_use_link_local_only {
+			description "Enable/Disable IPv6 link local address on portchannel interface";
+			type stypes:mode-status;
+			default disable;
 		}
             } /* end of list PORTCHANNEL_INTERFACE_LIST */
 

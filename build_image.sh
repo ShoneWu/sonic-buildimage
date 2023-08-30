@@ -191,6 +191,7 @@ elif [ "$IMAGE_TYPE" = "aboot" ]; then
     zip -g $ABOOT_BOOT_IMAGE .imagehash
     rm .imagehash
     echo "SWI_VERSION=42.0.0" > version
+    echo "BUILD_DATE=$(date -d "${build_date}" -u +%Y%m%dT%H%M%SZ)" >> version
     echo "SWI_MAX_HWEPOCH=2" >> version
     echo "SWI_VARIANT=US" >> version
     zip -g $OUTPUT_ABOOT_IMAGE version
@@ -201,12 +202,12 @@ elif [ "$IMAGE_TYPE" = "aboot" ]; then
     zip -g $OUTPUT_ABOOT_IMAGE .platforms_asic
 
     if [ "$ENABLE_FIPS" = "y" ]; then
-        echo "sonic_fips=1" > kernel-cmdline
+        echo "sonic_fips=1" >> kernel-cmdline-append
     else
-        echo "sonic_fips=0" > kernel-cmdline
+        echo "sonic_fips=0" >> kernel-cmdline-append
     fi
-    zip -g $OUTPUT_ABOOT_IMAGE kernel-cmdline
-    rm kernel-cmdline
+    zip -g $OUTPUT_ABOOT_IMAGE kernel-cmdline-append
+    rm kernel-cmdline-append
 
     zip -g $OUTPUT_ABOOT_IMAGE $ABOOT_BOOT_IMAGE
     rm $ABOOT_BOOT_IMAGE

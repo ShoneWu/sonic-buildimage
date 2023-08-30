@@ -1,0 +1,54 @@
+commit 8b78a43ba243df281f2096a84893ad87cb2a79ff
+Author: Stephen Xu <stexu@linkedin.com>
+Date:   Wed Nov 16 16:07:37 2022 -0500
+
+    [PATCH] ignore route from default table
+
+    Signed-off-by: Stephen Xu <stexu@linkedin.com>
+
+diff --git a/zebra/zebra_fpm.c b/zebra/zebra_fpm.c
+index 43958fdfd..de7e246d4 100644
+--- a/zebra/zebra_fpm.c
++++ b/zebra/zebra_fpm.c
+@@ -25,6 +25,7 @@
+ 
+ #include "log.h"
+ #include "libfrr.h"
++#include "rib.h"
+ #include "stream.h"
+ #include "thread.h"
+ #include "network.h"
+@@ -1016,8 +1017,15 @@ static int zfpm_build_route_updates(void)
+ 				else
+ 					zfpm_g->stats.route_dels++;
+ 			} else {
+-				zlog_err("%s: Encoding Prefix: %pRN No valid nexthops",
+-					 __func__, dest->rnode);
++				struct rib_table_info *table_info =
++				    rib_table_info(rib_dest_table(dest));
++				if (table_info && table_info->table_id == RT_TABLE_DEFAULT) {
++					zfpm_debug("%s: Skip encoding default table prefix: %pRN",
++						   __func__, dest->rnode);
++				} else {
++					zlog_err("%s: Encoding Prefix: %pRN No valid nexthops",
++						 __func__, dest->rnode);
++				}
+ 			}
+ 		}
+ 
+diff --git a/zebra/zebra_fpm_netlink.c b/zebra/zebra_fpm_netlink.c
+index ec22c5dd4..53e5f59fb 100644
+--- a/zebra/zebra_fpm_netlink.c
++++ b/zebra/zebra_fpm_netlink.c
+@@ -278,6 +278,11 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
+ 		rib_table_info(rib_dest_table(dest));
+ 	struct zebra_vrf *zvrf = table_info->zvrf;
+ 
++    if (table_info->table_id == RT_TABLE_DEFAULT) {
++        zfpm_debug("%s: Discard default table route", __func__);
++        return 0;
++    }
++
+ 	memset(ri, 0, sizeof(*ri));
+ 
+ 	ri->prefix = rib_dest_prefix(dest);

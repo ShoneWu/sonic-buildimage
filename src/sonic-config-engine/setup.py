@@ -7,7 +7,7 @@ from setuptools import setup
 dependencies = [
     'bitarray==1.5.3',
     'ipaddress==1.0.23',
-    'lxml==4.6.5',
+    'lxml==4.9.1',
     'netaddr==0.8.0',
     'pyyaml==5.4.1',
     'sonic-py-common',
@@ -43,7 +43,6 @@ py_modules = [
     'minigraph',
     'openconfig_acl',
     'portconfig',
-    'redis_bcc',
 ]
 if sys.version_info.major == 3:
     # Python 3-only modules

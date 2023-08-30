@@ -12,6 +12,7 @@
 import copy
 import os
 import sys
+from imp import load_source
 from swsscommon import swsscommon
 
 from mock import Mock, MagicMock, patch
@@ -23,7 +24,9 @@ swsscommon.SonicV2Connector = MockConnector
 
 test_path = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(test_path)
+scripts_path = os.path.join(modules_path, 'scripts')
 sys.path.insert(0, modules_path)
+sys.path.insert(0, scripts_path)
 from health_checker import utils
 from health_checker.config import Config
 from health_checker.hardware_checker import HardwareChecker
@@ -34,6 +37,9 @@ from health_checker.user_defined_checker import UserDefinedChecker
 from health_checker.sysmonitor import Sysmonitor
 from health_checker.sysmonitor import MonitorStateDbTask
 from health_checker.sysmonitor import MonitorSystemBusTask
+
+load_source('healthd', os.path.join(scripts_path, 'healthd'))
+from healthd import HealthDaemon
 
 mock_supervisorctl_output = """
 snmpd                       RUNNING   pid 67, uptime 1:03:56
@@ -425,7 +431,7 @@ def test_config():
 
     assert config.get_led_color('fault') == 'red'
     assert config.get_led_color('normal') == 'green'
-    assert config.get_led_color('booting') == 'orange_blink'
+    assert config.get_led_color('booting') == 'red'
 
     config._last_mtime  = 1
     config._config_file = 'notExistFile'
@@ -498,10 +504,10 @@ def test_manager(mock_hw_info, mock_service_info, mock_udc_info):
     assert stat['Internal']['UserDefinedChecker - some check']['status'] == 'Not OK'
 
     chassis.set_status_led.side_effect = NotImplementedError()
-    manager._set_system_led(chassis, manager.config, 'normal')
+    manager._set_system_led(chassis)
 
     chassis.set_status_led.side_effect = RuntimeError()
-    manager._set_system_led(chassis, manager.config, 'normal')
+    manager._set_system_led(chassis)
 
 def test_utils():
     output = utils.run_command('some invalid command')
@@ -568,7 +574,7 @@ def test_get_app_ready_status(mock_config_db, mock_run, mock_docker_client):
             'has_global_scope': 'True',
             'has_per_asic_scope': 'False',
             'check_up_status': 'True'
-        },   
+        },
         'snmp': {
             'state': 'enabled',
             'has_global_scope': 'True',
@@ -616,6 +622,15 @@ def test_check_unit_status():
     assert 'mock_bgp.service' in sysmon.dnsrvs_name
 
 
+@patch('health_checker.sysmonitor.Sysmonitor.get_all_service_list', MagicMock(return_value=['mock_snmp.service']))
+def test_check_unit_status_timer():
+    sysmon = Sysmonitor()
+    sysmon.state_db = MagicMock()
+    sysmon.state_db.exists = MagicMock(return_value=1)
+    sysmon.state_db.delete = MagicMock()
+    sysmon.check_unit_status('mock_snmp.timer')
+    assert not sysmon.state_db.delete.called
+
 
 @patch('health_checker.sysmonitor.Sysmonitor.run_systemctl_show', MagicMock(return_value=mock_srv_props['mock_radv.service']))
 @patch('health_checker.sysmonitor.Sysmonitor.get_app_ready_status', MagicMock(return_value=('Up','-','-')))
@@ -659,10 +674,10 @@ def test_get_all_system_status_not_ok():
     result = sysmon.get_all_system_status()
     print("result:{}".format(result))
     assert result == 'DOWN'
-    
+
 def test_post_unit_status():
     sysmon = Sysmonitor()
-    sysmon.post_unit_status("mock_bgp", 'OK', 'Down', 'mock reason', '-') 
+    sysmon.post_unit_status("mock_bgp", 'OK', 'Down', 'mock reason', '-')
     result = swsscommon.SonicV2Connector.get_all(MockConnector, 0, 'ALL_SERVICE_STATUS|mock_bgp')
     print(result)
     assert result['service_status'] == 'OK'
@@ -671,7 +686,7 @@ def test_post_unit_status():
 
 def test_post_system_status():
     sysmon = Sysmonitor()
-    sysmon.post_system_status("UP") 
+    sysmon.post_system_status("UP")
     result = swsscommon.SonicV2Connector.get(MockConnector, 0, "SYSTEM_READY|SYSTEM_STATE", 'Status')
     print("post system status result:{}".format(result))
     assert result == "UP"
@@ -689,7 +704,7 @@ def test_publish_system_status():
 @patch('health_checker.sysmonitor.Sysmonitor.publish_system_status', test_publish_system_status())
 def test_update_system_status():
     sysmon = Sysmonitor()
-    sysmon.update_system_status() 
+    sysmon.update_system_status()
     result = swsscommon.SonicV2Connector.get(MockConnector, 0, "SYSTEM_READY|SYSTEM_STATE", 'Status')
     assert result == "UP"
 
@@ -740,3 +755,26 @@ def test_get_service_from_feature_table():
     sysmon.get_service_from_feature_table(dir_list)
     assert 'bgp.service' in dir_list
     assert 'swss.service' not in dir_list
+
+
+@patch('healthd.time.time')
+def test_healthd_check_interval(mock_time):
+    daemon = HealthDaemon()
+    manager = MagicMock()
+    manager.check = MagicMock()
+    manager.config = MagicMock()
+    chassis = MagicMock()
+    daemon._process_stat = MagicMock()
+    daemon.stop_event = MagicMock()
+    daemon.stop_event.wait = MagicMock()
+
+    daemon.stop_event.wait.return_value = False
+    manager.config.interval = 60
+    mock_time.side_effect = [0, 3, 0, 61, 0, 1]
+    assert daemon._run_checker(manager, chassis)
+    daemon.stop_event.wait.assert_called_with(57)
+    assert daemon._run_checker(manager, chassis)
+    daemon.stop_event.wait.assert_called_with(1)
+
+    daemon.stop_event.wait.return_value = True
+    assert not daemon._run_checker(manager, chassis)

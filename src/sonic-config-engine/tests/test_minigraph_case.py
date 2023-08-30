@@ -159,7 +159,7 @@ class TestCfgGenCaseInsensitive(TestCase):
         output = self.run_script(argument)
         self.assertEqual(
             utils.to_dict(output.strip()),
-            utils.to_dict("{'PortChannel01': {'admin_status': 'up', 'min_links': '1', 'members': ['Ethernet4'], 'mtu': '9100', 'tpid': '0x8100'}}")
+            utils.to_dict("{'PortChannel01': {'admin_status': 'up', 'min_links': '1', 'mtu': '9100', 'tpid': '0x8100', 'lacp_key': 'auto'}}")
         )
 
     def test_minigraph_console_mgmt_feature(self):
@@ -194,6 +194,11 @@ class TestCfgGenCaseInsensitive(TestCase):
         output = self.run_script(argument)
         self.assertEqual(output.strip(), "1")
 
+    def test_minigraph_rack_mgmt_map(self):
+        argument = '-m "' + self.sample_graph + '" -p "' + self.port_config + '" -v "DEVICE_METADATA[\'localhost\'][\'rack_mgmt_map\']"'
+        output = self.run_script(argument)
+        self.assertEqual(output.strip(), "dummy_value")
+
     def test_minigraph_cluster(self):
         argument = '-m "' + self.sample_graph + '" -p "' + self.port_config + '" -v "DEVICE_METADATA[\'localhost\'][\'cluster\']"'
         output = self.run_script(argument)
@@ -203,39 +208,40 @@ class TestCfgGenCaseInsensitive(TestCase):
         argument = '-m "' + self.sample_graph + '" -p "' + self.port_config + '" -v "DEVICE_NEIGHBOR_METADATA"'
 
         expected_table = {
-            'switch-01t1': { 
-                'lo_addr': '10.1.0.186/32',
-                'mgmt_addr': '10.7.0.196/26',
-                'hwsku': 'Force10-S6000',
-                'type': 'LeafRouter',
-                'deployment_id': '2'
-            },
             'switch2-t0': {
-                'hwsku': 'Force10-S6000',
                 'lo_addr': '25.1.1.10/32',
                 'mgmt_addr': '10.7.0.196/26',
+                'hwsku': 'Force10-S6000',
                 'type': 'ToRRouter'
             },
-            'server1': {
-                'hwsku': 'server-sku',
-                'lo_addr': '10.10.10.1/32',
-                'lo_addr_v6': 'fe80::0001/80',
-                'mgmt_addr': '10.0.0.1/32',
-                'type': 'Server'
-            },
             'server2': {
-                'hwsku': 'server-sku',
-                'lo_addr': '10.10.10.2/32',
                 'lo_addr_v6': 'fe80::0002/128',
+                'lo_addr': '10.10.10.2/32',
                 'mgmt_addr': '10.0.0.2/32',
+                'hwsku': 'server-sku',
                 'type': 'Server'
             },
+            'server1': {
+                'lo_addr_v6': 'fe80::0001/80',
+                'lo_addr': '10.10.10.1/32',
+                'mgmt_addr': '10.0.0.1/32',
+                'hwsku': 'server-sku',
+                'type': 'Server'
+            },
+            'switch-01t1': { 
+                'lo_addr': '10.1.0.186/32',
+                'deployment_id': '2',
+                'hwsku': 'Force10-S6000',
+                'type': 'LeafRouter',
+                'mgmt_addr': '10.7.0.196/26' 
+            },  
             'server1-SC': {
-                'hwsku': 'smartcable-sku',
-                'lo_addr': '0.0.0.0/0',
                 'lo_addr_v6': '::/0',
                 'mgmt_addr': '0.0.0.0/0',
-                'type': 'SmartCable'
+                'hwsku': 'smartcable-sku',
+                'lo_addr': '0.0.0.0/0',
+                'type': 'SmartCable',
+                'mgmt_addr_v6': '::/0',
             }
         }
         output = self.run_script(argument)
@@ -466,6 +472,66 @@ class TestCfgGenCaseInsensitive(TestCase):
             everflow_dscp_entry['ports'].sort(),
             expected_ports.sort()
         )
+
+    def test_minigraph_acl_attach_to_ports(self):
+        """
+        The test case is to verify ACL table can be bound to both port names and alias
+        """
+        sample_graph = os.path.join(self.test_dir,'simple-sample-graph-case-acl-test.xml')
+        port_config_duplicated_name_alias = os.path.join(self.test_dir, 't0-sample-port-config-duplicated-name-alias.ini')
+        result = minigraph.parse_xml(sample_graph, port_config_file=port_config_duplicated_name_alias)
+        # TC1: All ports are portchannels or port names
+        expected_dataacl_ports = ['PortChannel01','Ethernet20','Ethernet24']
+        self.assertEqual(sorted(result['ACL_TABLE']['DATAACL_PORT_NAME']['ports']), sorted(expected_dataacl_ports))
+        # TC2: All ports are portchanels or port alias
+        expected_dataacl_ports = ['PortChannel01','Ethernet4','Ethernet8']
+        self.assertEqual(sorted(result['ACL_TABLE']['DATAACL_PORT_ALIAS']['ports']), sorted(expected_dataacl_ports))
+        # TC3: Duplicated values in port names and alias, but all fall in port names
+        expected_dataacl_ports = ['PortChannel01','Ethernet0','Ethernet1','Ethernet2','Ethernet3']
+        self.assertEqual(sorted(result['ACL_TABLE']['DATAACL_MIXED_NAME_ALIAS_1']['ports']), sorted(expected_dataacl_ports))
+        # TC4: Duplicated values in port names and alias, but all fall in port alias
+        expected_dataacl_ports = ['PortChannel01','Ethernet0','Ethernet1','Ethernet4','Ethernet8']
+        self.assertEqual(sorted(result['ACL_TABLE']['DATAACL_MIXED_NAME_ALIAS_2']['ports']), sorted(expected_dataacl_ports))
+        # TC5: Same count in port names and alias, port alias is preferred
+        expected_dataacl_ports = ['Ethernet0']
+        self.assertEqual(sorted(result['ACL_TABLE']['DATAACL_MIXED_NAME_ALIAS_3']['ports']), sorted(expected_dataacl_ports))
+
+    def test_minigraph_acl_type_bmcdata(self):
+        expected_acl_type_bmcdata = {
+            "ACTIONS": "PACKET_ACTION,COUNTER",
+            "BIND_POINTS": "PORT",
+            "MATCHES": "SRC_IP,DST_IP,ETHER_TYPE,IP_TYPE,IP_PROTOCOL,IN_PORTS,L4_SRC_PORT,L4_DST_PORT,L4_SRC_PORT_RANGE,L4_DST_PORT_RANGE",
+        }
+        expected_acl_type_bmcdatav6 = {
+            "ACTIONS": "PACKET_ACTION,COUNTER",
+            "BIND_POINTS": "PORT",
+            "MATCHES": "SRC_IPV6,DST_IPV6,ETHER_TYPE,IP_TYPE,IP_PROTOCOL,IN_PORTS,L4_SRC_PORT,L4_DST_PORT,L4_SRC_PORT_RANGE,L4_DST_PORT_RANGE",
+        }
+        expected_acl_table_bmc_acl_northbound =  {
+            'policy_desc': 'BMC_ACL_NORTHBOUND',
+            'ports': ['Ethernet0', 'Ethernet1'],
+            'stage': 'ingress',
+            'type': 'BMCDATA',
+        }
+        expected_acl_table_bmc_acl_northbound_v6 = {
+            'policy_desc': 'BMC_ACL_NORTHBOUND_V6',
+            'ports': ['Ethernet0', 'Ethernet1'],
+            'stage': 'ingress',
+            'type': 'BMCDATAV6',
+        }
+        # TC1: Minigraph contains acl table type BmcData
+        sample_graph = os.path.join(self.test_dir,'simple-sample-graph-case-acl-type-bmcdata.xml')
+        result = minigraph.parse_xml(sample_graph)
+        self.assertIn('ACL_TABLE_TYPE', result)
+        self.assertIn('BMCDATA', result['ACL_TABLE_TYPE'])
+        self.assertIn('BMCDATAV6', result['ACL_TABLE_TYPE'])
+        self.assertDictEqual(result['ACL_TABLE_TYPE']['BMCDATA'], expected_acl_type_bmcdata)
+        self.assertDictEqual(result['ACL_TABLE_TYPE']['BMCDATAV6'], expected_acl_type_bmcdatav6)
+        self.assertDictEqual(result['ACL_TABLE']['BMC_ACL_NORTHBOUND'], expected_acl_table_bmc_acl_northbound)
+        self.assertDictEqual(result['ACL_TABLE']['BMC_ACL_NORTHBOUND_V6'], expected_acl_table_bmc_acl_northbound_v6)
+        # TC2: Minigraph doesn't contain acl table type BmcData
+        result = minigraph.parse_xml(self.sample_graph)
+        self.assertNotIn('ACL_TABLE_TYPE', result)
 
     def test_parse_device_desc_xml_mgmt_interface(self):
         # Regular device_desc.xml with both IPv4 and IPv6 mgmt address

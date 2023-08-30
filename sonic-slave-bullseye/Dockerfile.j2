@@ -14,40 +14,7 @@ FROM {{ prefix }}debian:bullseye
 MAINTAINER gulv@microsoft.com
 
 COPY ["no-check-valid-until", "/etc/apt/apt.conf.d/"]
-
-## TODO: Re-add in any necessary mirror URLs here as they become available
-RUN echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian/ bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=amd64] http://debian-archive.trafficmanager.net/debian/ bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian-security/ bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=amd64] http://debian-archive.trafficmanager.net/debian-security/ bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://debian-archive.trafficmanager.net/debian bullseye-backports main" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.trafficmanager.net/debian/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.trafficmanager.net/debian/debian bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=amd64] http://packages.trafficmanager.net/debian/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list
-
-{%- if CONFIGURED_ARCH == "armhf" %}
-RUN echo "deb [arch=armhf] http://deb.debian.org/debian bullseye main contrib non-free" > /etc/apt/sources.list && \
-        echo "deb-src [arch=armhf] http://deb.debian.org/debian bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://deb.debian.org/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=armhf] http://deb.debian.org/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://security.debian.org bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=armhf] http://security.debian.org bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo 'deb [arch=armhf] http://ftp.debian.org/debian bullseye-backports main' >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://packages.trafficmanager.net/debian/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://packages.trafficmanager.net/debian/debian bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=armhf] http://packages.trafficmanager.net/debian/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list
-{%- elif CONFIGURED_ARCH == "arm64" %}
-RUN echo "deb [arch=arm64] http://deb.debian.org/debian bullseye main contrib non-free" > /etc/apt/sources.list && \
-        echo "deb-src [arch=arm64] http://deb.debian.org/debian bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://deb.debian.org/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=arm64] http://deb.debian.org/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://security.debian.org bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb-src [arch=arm64] http://security.debian.org bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://packages.trafficmanager.net/debian/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
-        echo 'deb [arch=arm64] http://ftp.debian.org/debian bullseye-backports main' >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://packages.trafficmanager.net/debian/debian bullseye main contrib non-free" >> /etc/apt/sources.list && \
-        echo "deb [arch=arm64] http://packages.trafficmanager.net/debian/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list
-{%- endif %}
+COPY ["sources.list.{{ CONFIGURED_ARCH }}", "/etc/apt/sources.list"]
 
 ## Make apt-get non-interactive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -117,6 +84,13 @@ RUN apt-get update && apt-get install -y \
         libxml-simple-perl \
         graphviz \
         aspell \
+# For SAI meta rpc build - make rpc
+        libgetopt-long-descriptive-perl \
+        libconst-fast-perl \
+        libtemplate-perl \
+        libnamespace-autoclean-perl \
+        libmoose-perl \
+        libmoosex-aliases-perl \
 # For linux build
         bc \
         fakeroot \
@@ -161,7 +135,7 @@ RUN apt-get update && apt-get install -y \
         libxml2-dev \
 # For BFN sdk build
         libusb-1.0-0-dev \
-        libcurl3-nss-dev \
+        libcurl4-openssl-dev \
         libunwind8-dev \
         telnet \
         libc-ares2 \
@@ -186,6 +160,9 @@ RUN apt-get update && apt-get install -y \
         libpcap-dev \
         dnsutils \
         libusb-dev \
+# For cisco sdk build
+        libgrpc++1 \
+        libabsl-dev \
 # For debian image reconfiguration
         augeas-tools \
 # For p4 build
@@ -313,7 +290,7 @@ RUN apt-get update && apt-get install -y \
         xsltproc \
         python3-lxml \
         libexpat1-dev \
-        libcurl3-gnutls \
+        libcurl4 \
         libcjson-dev \
 # For WPA supplication
         qtbase5-dev          \
@@ -418,7 +395,7 @@ RUN apt-get purge -y python3-pip python3-yaml
 
 # For building Python packages
 RUN pip3 install setuptools==49.6.00
-RUN pip3 install wheel==0.35.1
+RUN pip3 install wheel==0.38.1
 
 # For building sonic-utilities
 RUN pip3 install fastentrypoints mock
@@ -427,6 +404,19 @@ RUN pip3 install fastentrypoints mock
 RUN pip3 install pytest-runner==5.2
 RUN pip3 install nose==1.3.7
 RUN pip3 install mockredispy==2.9.3
+
+# Fix CVE-2021-23437, need to build and install libjpeg-dev for armhf for pillow 9.4.0
+{%- if CONFIGURED_ARCH == "armhf" %}
+RUN TMP_DIR=$(mktemp -d) && \
+    cd $TMP_DIR && \
+    apt-get install -y nasm && \
+    apt-get source libjpeg-turbo && \
+    cd $(ls -d libjpeg-turbo*/) && \
+    dpkg-buildpackage -rfakeroot -b -us -uc > $TMP_DIR/libjpeg-dev.log && \
+    dpkg -i $TMP_DIR/libjpeg*-dev*.deb && \
+    rm -rf $TMP_DIR
+{%- endif %}
+RUN pip3 install pillow==9.4.0
 
 # For p4 build
 RUN pip3 install \
@@ -444,8 +434,10 @@ RUN pip3 uninstall -y enum34
 RUN pip3 install j2cli==0.3.10
 
 # For sonic-mgmt-framework
-RUN pip3 install "PyYAML==5.4.1"
-RUN pip3 install "lxml==4.6.2"
+# The option --no-build-isolation can be removed when upgrading PyYAML to 6.0.1
+RUN pip3 install "PyYAML==5.4.1" --no-build-isolation
+
+RUN pip3 install "lxml==4.9.1"
 
 # For sonic-platform-common testing
 RUN pip3 install redis
@@ -463,6 +455,9 @@ RUN pip3 install pyang==2.4.0
 RUN pip3 install mmh3==2.5.1
 
 RUN pip3 install parameterized==0.8.1
+
+# For latest version error, use previous version
+RUN pip3 install deepdiff==6.2.2
 
 RUN apt-get install -y xsltproc
 
@@ -527,7 +522,7 @@ LABEL "com.azure.dev.pipelines.agent.handler.node.path"="/usr/bin/node"
 # Install Bazel build system (amd64 and arm64 architectures are supported using this method)
 # TODO(PINS): Remove once pre-build Bazel binaries are available for armhf (armv7l)
 {%- if CONFIGURED_ARCH == "amd64" or CONFIGURED_ARCH == "arm64" %}
-ARG bazelisk_url=https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-{{ CONFIGURED_ARCH }}
+ARG bazelisk_url=https://github.com/bazelbuild/bazelisk/releases/download/v1.13.0/bazelisk-linux-{{ CONFIGURED_ARCH }}
 RUN curl -fsSL -o /usr/local/bin/bazel ${bazelisk_url} && chmod 755 /usr/local/bin/bazel
 # Bazel requires "python"
 # TODO(PINS): remove when Bazel is okay with "python3" binary name

@@ -1,4 +1,5 @@
-FROM docker-config-engine-bullseye
+{% from "dockers/dockerfile-macros.j2" import install_debian_packages, install_python_wheels, copy_files, cleanup_apt_and_python_cache %}
+FROM docker-config-engine-bullseye-{{DOCKER_USERNAME}}:{{DOCKER_USERTAG}}
 
 ARG docker_container_name
 RUN [ -f /etc/rsyslog.conf ] && sed -ri "s/%syslogtag%/$docker_container_name#%syslogtag%/;" /etc/rsyslog.conf
@@ -27,14 +28,15 @@ debs/{{ deb }}{{' '}}
 
 COPY ["docker-init.sh", "/usr/bin/"]
 COPY ["start.sh", "/usr/bin/"]
+COPY ["bcmsh", "/usr/bin/"]
 
 COPY ["critical_processes.j2", "/usr/share/sonic/templates"]
 COPY ["supervisord.conf.j2", "/usr/share/sonic/templates"]
 
 COPY ["files/supervisor-proc-exit-listener", "/usr/bin"]
+COPY ["files/dsserve", "/usr/bin/"]
+RUN chmod +x /usr/bin/dsserve
 
-## Clean up
-RUN apt-get clean -y; apt-get autoclean -y; apt-get autoremove -y
-RUN rm -rf /debs
+{{ cleanup_apt_and_python_cache() }}
 
 ENTRYPOINT ["/usr/bin/docker-init.sh"]

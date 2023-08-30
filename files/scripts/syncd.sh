@@ -2,6 +2,18 @@
 
 . /usr/local/bin/syncd_common.sh
 
+declare -r UNKN_MST="unknown"
+
+function GetMstDevice() {
+    local _MST_DEVICE="$(ls /dev/mst/*_pci_cr0 2>&1)"
+
+    if [[ ! -c "${_MST_DEVICE}" ]]; then
+        echo "${UNKN_MST}"
+    else
+        echo "${_MST_DEVICE}"
+    fi
+}
+
 function startplatform() {
 
     # platform specific tasks
@@ -23,9 +35,38 @@ function startplatform() {
 
         debug "Starting Firmware update procedure"
         /usr/bin/mst start --with_i2cdev
+
+        local -r _MST_DEVICE="$(GetMstDevice)"
+        if [[ "${_MST_DEVICE}" != "${UNKN_MST}" ]]; then
+            /usr/bin/flint -d $_MST_DEVICE --clear_semaphore
+        fi
+
         /usr/bin/mlnx-fw-upgrade.sh
-        /etc/init.d/sxdkernel start
+        /etc/init.d/sxdkernel restart
         debug "Firmware update procedure ended"
+    fi
+
+    if [[ x"$sonic_asic_platform" == x"broadcom" ]]; then
+        if [[ x"$WARM_BOOT" != x"true" ]]; then
+            . /host/machine.conf
+            if [ -n "$aboot_platform" ]; then
+                platform=$aboot_platform
+            elif [ -n "$onie_platform" ]; then
+                platform=$onie_platform
+            else 
+                platform="unknown"
+            fi
+            if [[ x"$platform" == x"x86_64-arista_720dt_48s" ]]; then
+                is_bcm0=$(ls /sys/class/net | grep bcm0)
+                if [[ "$is_bcm0" == "bcm0" ]]; then
+                    debug "stop SDK opennsl-modules ..."
+                    /etc/init.d/opennsl-modules stop
+                    debug "start SDK opennsl-modules ..."
+                    /etc/init.d/opennsl-modules start
+                    debug "started SDK opennsl-modules"
+                fi
+            fi
+        fi
     fi
 
     if [[ x"$sonic_asic_platform" == x"barefoot" ]]; then
@@ -82,6 +123,12 @@ function stopplatform1() {
     fi
 
     if [[ x$sonic_asic_platform != x"mellanox" ]] || [[ x$TYPE != x"cold" ]]; then
+        # Invoke platform specific pre shutdown routine.
+        PLATFORM=`$SONIC_DB_CLI CONFIG_DB hget 'DEVICE_METADATA|localhost' platform`
+        PLATFORM_PRE_SHUTDOWN="/usr/share/sonic/device/$PLATFORM/plugins/syncd_request_pre_shutdown"
+        [ -f $PLATFORM_PRE_SHUTDOWN ] && \
+            /usr/bin/docker exec -i syncd$DEV /usr/share/sonic/platform/plugins/syncd_request_pre_shutdown --${TYPE}
+
         debug "${TYPE} shutdown syncd process ..."
         /usr/bin/docker exec -i syncd$DEV /usr/bin/syncd_request_shutdown --${TYPE}
 

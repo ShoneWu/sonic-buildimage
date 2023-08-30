@@ -29,6 +29,7 @@ resources:
   - repository: sonic-mgmt
     type: github
     name: sonic-net/sonic-mgmt
+    ref: master
     endpoint: sonic-net
   - repository: buildimage
     type: github
@@ -37,11 +38,8 @@ resources:
     ref: master
 
 variables:
-- template: .azure-pipelines/azure-pipelines-repd-build-variables.yml
-- ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-  - template: .azure-pipelines/template-variables.yml
-- ${{ else }}:
-  - template: .azure-pipelines/template-variables.yml@buildimage
+- template: .azure-pipelines/azure-pipelines-repd-build-variables.yml@buildimage
+- template: .azure-pipelines/template-variables.yml@buildimage
 - name: CACHE_MODE
   value: rcache
 - name: ENABLE_FIPS
@@ -53,7 +51,7 @@ stages:
   jobs:
   - template: .azure-pipelines/azure-pipelines-build.yml
     parameters:
-      buildOptions: 'USERNAME=admin SONIC_BUILD_JOBS=$(nproc) ${{ variables.VERSION_CONTROL_OPTIONS }}'
+      buildOptions: 'USERNAME=admin SONIC_BUILD_JOBS=$(nproc) BUILD_MULTIASIC_KVM=y ${{ variables.VERSION_CONTROL_OPTIONS }}'
       jobGroups:
       - name: vs
 
@@ -67,8 +65,15 @@ stages:
       jobGroups:
       - name: broadcom
         variables:
+          dbg_image: yes
           swi_image: yes
+          docker_syncd_rpc_image: yes
+          platform_rpc: brcm
       - name: mellanox
+        variables:
+          dbg_image: yes
+          docker_syncd_rpc_image: yes
+          platform_rpc: mlnx
       - name: marvell-armhf
         pool: sonicbld-armhf
         timeoutInMinutes: 1200
@@ -77,8 +82,9 @@ stages:
 
 - stage: Test
   dependsOn: BuildVS
-  condition: and(ne(stageDependencies.BuildVS.outputs['vs.SetVar.SKIP_VSTEST'], 'YES'), in(dependencies.BuildVS.result, 'Succeeded', 'SucceededWithIssues'))
+  condition: and(succeeded(), and(ne(stageDependencies.BuildVS.outputs['vs.SetVar.SKIP_VSTEST'], 'YES'), in(dependencies.BuildVS.result, 'Succeeded', 'SucceededWithIssues')))
   variables:
+  - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
@@ -112,6 +118,8 @@ stages:
 
     - script: |
         set -x
+        sudo apt-get update
+        sudo apt-get install libyang0.16 -y
         sudo dpkg -i --force-confask,confnew ../libswsscommon_1.0.0_amd64.deb
         sudo dpkg -i ../python3-swsscommon_1.0.0_amd64.deb
         sudo docker load -i ../target/docker-sonic-vs.gz
@@ -132,79 +140,88 @@ stages:
         testResultsFiles: '**/tr.xml'
         testRunTitle: vstest
 
-  - job: t0_part1
-    pool: sonictest
-    displayName: "kvmtest-t0-part1"
-    timeoutInMinutes: 360
-
+  - job: t0_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t0 by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        section: part-1
+        TOPOLOGY: t0
+        MIN_WORKER: $(T0_INSTANCE_NUM)
+        MAX_WORKER: $(T0_INSTANCE_NUM)
+        MGMT_BRANCH: "202205"
 
-  - job: t0_part2
-    pool: sonictest
-    displayName: "kvmtest-t0-part2"
-    timeoutInMinutes: 360
-
+  - job: t0_2vlans_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t0-2vlans by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        section: part-2
+        TOPOLOGY: t0
+        TEST_SET: t0-2vlans
+        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+        MGMT_BRANCH: "202205"
 
-  - job:
-    pool: sonictest
-    displayName: "kvmtest-t0"
-    timeoutInMinutes: 360
-    dependsOn:
-    - t0_part1
-    - t0_part2
-    condition: always()
-    variables:
-      resultOfPart1: $[ dependencies.t0_part1.result ]
-      resultOfPart2: $[ dependencies.t0_part2.result ]
-
+  - job: t1_lag_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t1-lag by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
     steps:
-    - script: |
-        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
-          echo "Both job kvmtest-t0-part1 and kvmtest-t0-part2 are passed."
-          exit 0
-        else
-          echo "Either job kvmtest-t0-part1 or job kvmtest-t0-part2 failed! Please check the detailed information."
-          exit 1
-        fi
-
-  - job:
-    pool: sonictest-t1-lag
-    displayName: "kvmtest-t1-lag"
-    timeoutInMinutes: 360
-
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        dut: vlab-03
-        tbname: vms-kvm-t1-lag
-        ptf_name: ptf_vms6-2
-        tbtype: t1-lag
+        TOPOLOGY: t1-lag
+        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
+        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
+        MGMT_BRANCH: "202205"
 
-  - job:
-    pool: sonictest-sonic-t0
-    displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 360
-
+  - job: sonic_t0_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t0-sonic by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-02
-        tbname: vms-kvm-t0-64-32
-        ptf_name: ptf_vms6-1
-        tbtype: t0-sonic
-        vmtype: vsonic
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+        parameters:
+          TOPOLOGY: t0-64-32
+          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          TEST_SET: t0-sonic
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
+          VM_TYPE: vsonic
+          MGMT_BRANCH: "202205"
+
+  - job: dualtor_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-dualtor-t0 by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+        parameters:
+          TOPOLOGY: dualtor
+          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+          MGMT_BRANCH: "202205"
+
+  - job: multi_asic_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
+    timeoutInMinutes: 1080
+    continueOnError: false
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+        parameters:
+          TOPOLOGY: t1-8-lag
+          TEST_SET: multi-asic-t1-lag
+          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          NUM_ASIC: 4
+          MGMT_BRANCH: "202205"

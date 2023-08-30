@@ -87,7 +87,7 @@ function preStartAction()
 {%- if docker_container_name == "database" %}
     WARM_DIR=/host/warmboot
     if [ "$DATABASE_TYPE" != "chassisdb" ]; then
-        if [[ ("$BOOT_TYPE" == "warm" || "$BOOT_TYPE" == "fastfast")  && -f $WARM_DIR/dump.rdb ]]; then
+        if [[ ("$BOOT_TYPE" == "warm" || "$BOOT_TYPE" == "fastfast" || "$BOOT_TYPE" == "fast")  && -f $WARM_DIR/dump.rdb ]]; then
             # Load redis content from /host/warmboot/dump.rdb
             docker cp $WARM_DIR/dump.rdb database$DEV:/var/lib/redis/dump.rdb
         else
@@ -144,11 +144,13 @@ function waitForAllInstanceDatabaseConfigJsonFilesReady()
                     fi
 		done
             done
-	fi
+        fi
+        # Delay a second to allow all instance database_config.json files to be completely generated and fully accessible.
+        # This delay is needed to make sure that the database_config.json files are correctly rendered from j2 template 
+        # files ( renderning takes some time )
+        sleep 1 
     fi
 }
-# delay a second to allow the file to be fully accessible
-sleep 1
 {%- endif %}
 
 function postStartAction()
@@ -170,16 +172,26 @@ function postStartAction()
            ip netns exec "$NET_NS" ip addr add 127.0.0.1/16 dev lo
            ip netns exec "$NET_NS" ip addr del 127.0.0.1/8 dev lo
 
+           slot_id=$(python3 -c 'import sonic_platform.platform; platform_chassis = sonic_platform.platform.Platform().get_chassis(); print(platform_chassis.get_my_slot())' 2>/dev/null)
+           supervisor_slot_id=$(python3 -c 'import sonic_platform.platform; platform_chassis = sonic_platform.platform.Platform().get_chassis(); print(platform_chassis.get_supervisor_slot())' 2>/dev/null)
+
            # Create eth1 in database instance
-           ip link add name ns-eth1"$NET_NS" link eth1-midplane type macvlan mode bridge
+           if [[ "${slot_id}" == "${supervisor_slot_id}" ]]; then
+                   ip link add name ns-eth1"$NET_NS" type veth peer name eth1@"$NET_NS"
+                   ip link set dev eth1@"$NET_NS" master br1
+                   ip link set dev eth1@"$NET_NS" up
+           else
+                   ip link add name ns-eth1"$NET_NS" link eth1-midplane type macvlan mode bridge
+           fi
+
+           # Create eth1 in database instance
            ip link set dev ns-eth1"$NET_NS" netns "$NET_NS"
            ip netns exec "$NET_NS" ip link set ns-eth1"$NET_NS" name eth1
 
            # Configure IP address and enable eth1
-           lc_slot_id=$(python3 -c 'import sonic_platform.platform; platform_chassis = sonic_platform.platform.Platform().get_chassis(); print(platform_chassis.get_my_slot())' 2>/dev/null)
-           lc_ip_address=`echo $midplane_subnet | awk -F. '{print $1 "." $2}'`.$lc_slot_id.$(($DEV + 10))
-           lc_subnet_mask=${midplane_subnet#*/}
-           ip netns exec "$NET_NS" ip addr add $lc_ip_address/$lc_subnet_mask dev eth1
+           slot_ip_address=`echo $midplane_subnet | awk -F. '{print $1 "." $2}'`.$slot_id.$(($DEV + 10))
+           slot_subnet_mask=${midplane_subnet#*/}
+           ip netns exec "$NET_NS" ip addr add $slot_ip_address/$slot_subnet_mask dev eth1
            ip netns exec "$NET_NS" ip link set dev eth1 up
 
            # Allow localnet routing on the new interfaces if midplane is using a
@@ -204,20 +216,21 @@ function postStartAction()
         # then we catch python exception of file not valid
         # that comes to syslog which is unwanted so wait till database
         # config is ready and then ping
+	# sonic-db-cli try to initialize the global database. If in multiasic platform, inital global
+        # database will try to access to all other instance database-config.json. If other instance
+        # database-config.json files are not ready yet, it will generate the sonic-db-cli core files.
+	waitForAllInstanceDatabaseConfigJsonFilesReady
         until [[ ($(docker exec -i database$DEV pgrep -x -c supervisord) -gt 0) && ($($SONIC_DB_CLI PING | grep -c PONG) -gt 0) &&
                  ($(docker exec -i database$DEV sonic-db-cli PING | grep -c PONG) -gt 0) ]]; do
           sleep 1;
         done
-        if [[ ("$BOOT_TYPE" == "warm" || "$BOOT_TYPE" == "fastfast") && -f $WARM_DIR/dump.rdb ]]; then
+
+        if [[ ("$BOOT_TYPE" == "warm" || "$BOOT_TYPE" == "fastfast" || "$BOOT_TYPE" == "fast") && -f $WARM_DIR/dump.rdb ]]; then
             # retain the dump file from last boot for debugging purposes
             mv $WARM_DIR/dump.rdb $WARM_DIR/dump.rdb.old
         else
             # If there is a config_db.json dump file, load it.
-            if [ -r /etc/sonic/config_db$DEV.json ]; then
-
-		# For multi-asic, all /var/run/redis$DEV/sonic-db/database_config.json need to ready
-                # for loading config with --write-to-db
-		waitForAllInstanceDatabaseConfigJsonFilesReady
+            if [ -r /etc/sonic/config_db$DEV.json ]; then		
 
                 if [ -r /etc/sonic/init_cfg.json ]; then
                     $SONIC_CFGGEN -j /etc/sonic/init_cfg.json -j /etc/sonic/config_db$DEV.json --write-to-db
@@ -225,20 +238,18 @@ function postStartAction()
                     $SONIC_CFGGEN -j /etc/sonic/config_db$DEV.json --write-to-db
                 fi
             fi
-
-            if [[ "$BOOT_TYPE" == "fast" ]]; then
-                # set the key to expire in 3 minutes
-                $SONIC_DB_CLI STATE_DB SET "FAST_REBOOT|system" "1" "EX" "180"
-            fi
-
-            $SONIC_DB_CLI CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
         fi
 
-        if [[ -x /usr/local/bin/db_migrator.py ]]; then
-            # Migrate the DB to the latest schema version if needed
-            if [ -z "$DEV" ]; then
-                /usr/local/bin/db_migrator.py -o migrate
-            fi
+        if [ -e /tmp/pending_config_migration ] || [ -e /tmp/pending_config_initialization ]; then
+            # this is first boot to a new image, config-setup execution is pending.
+            # for warmboot case, DB is loaded but migration is still pending
+            # For firstbboot/fast/cold reboot case, DB contains nothing at this point
+            # unset CONFIG_DB_INITIALIZED to indicate pending config load and migration
+            # This flag will be set to "1" after DB migration/initialization is completed as part of config-setup
+            $SONIC_DB_CLI CONFIG_DB SET "CONFIG_DB_INITIALIZED" "0"
+        else
+            # set CONFIG_DB_INITIALIZED to indicate end of config load and migration
+            $SONIC_DB_CLI CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
         fi
         # Add redis UDS to the redis group and give read/write access to the group
         REDIS_SOCK="/var/run/redis${DEV}/redis.sock"
@@ -485,6 +496,7 @@ start() {
         -v mlnx_sdk_socket:/var/run/sx_sdk \
         -v mlnx_sdk_ready:/tmp \
         -v /dev/shm:/dev/shm:rw \
+        -v /var/log/sai_failure_dump:/var/log/sai_failure_dump:rw \
         -e SX_API_SOCKET_FILE=/var/run/sx_sdk/sx_api.sock \
 {%- elif docker_container_name == "pmon" %}
         -v /var/run/hw-management:/var/run/hw-management:rw \
@@ -583,6 +595,17 @@ stop() {
     {%- endif %}
 }
 
+kill() {
+    {%- if docker_container_name == "database" %}
+    docker kill $DOCKERNAME
+    if [ "$DEV" ]; then
+        ip netns delete "$NET_NS"
+    fi
+    {%- else %}
+    /usr/local/bin/container kill $DOCKERNAME
+    {%- endif %}
+}
+
 DOCKERNAME={{docker_container_name}}
 OP=$1
 DEV=$2 # namespace/device number to operate on
@@ -610,7 +633,7 @@ fi
 [ -f /etc/sonic/sonic-environment ] && . /etc/sonic/sonic-environment
 
 case "$1" in
-    start|wait|stop)
+    start|wait|stop|kill)
         $1
         ;;
     *)

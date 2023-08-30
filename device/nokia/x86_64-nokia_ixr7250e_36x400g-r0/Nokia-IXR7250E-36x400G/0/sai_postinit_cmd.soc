@@ -35,3 +35,4 @@ phy set 17 reg=0xd136 data=-16    lane=2
 phy set 17 reg=0xd137 data=0      lane=2
 phy set 17 reg=0xd138 data=0      lane=2
 phy set 17 reg=0xd133 data=0x1804 lane=2
+
