@@ -507,6 +507,9 @@ class Sfp(SfpOptoeBase):
             self.dom_rx_power_supported = False
             self.dom_tx_power_supported = False
 
+    def get_eeprom_path(self):
+        return self.port_to_eeprom_mapping[self.port_num]
+
     def get_transceiver_info(self):
         """
         Retrieves transceiver info of this SFP
